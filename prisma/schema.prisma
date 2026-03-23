@@ -1,0 +1,76 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  telegram_id  BigInt    @id
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  expenses     Expense[]
+  operations   AssetOperation[]
+
+  @@map("users")
+}
+
+model Expense {
+  id           String    @id @default(uuid())
+  user         User      @relation(fields: [telegram_id], references: [telegram_id])
+  telegram_id  BigInt
+  amount       Decimal   @db.Decimal(18, 8)
+  category     String
+  date         DateTime
+  description  String?
+  created_at   DateTime  @default(now())
+
+  @@map("expenses")
+}
+
+model Asset {
+  id           String           @id @default(uuid())
+  ticker       String           @unique
+  type         AssetType
+  currency     Currency         @default(BRL)
+  operations   AssetOperation[]
+
+  @@map("assets")
+}
+
+model AssetOperation {
+  id           String        @id @default(uuid())
+  user         User          @relation(fields: [telegram_id], references: [telegram_id])
+  telegram_id  BigInt
+  asset        Asset         @relation(fields: [asset_id], references: [id])
+  asset_id     String
+  quantity     Decimal       @db.Decimal(18, 8)
+  unit_price   Decimal       @db.Decimal(18, 8)
+  type         OperationType
+  date         DateTime
+  created_at   DateTime      @default(now())
+
+  @@map("asset_operations")
+}
+
+enum AssetType {
+  STOCK
+  CRYPTO
+  REIT
+  FIAGRO
+}
+
+enum Currency {
+  BRL
+  USD
+}
+
+enum OperationType {
+  BUY
+  SELL
+}
