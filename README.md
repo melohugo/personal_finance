@@ -1,98 +1,64 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Personal Finance
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Sistema modular para centralização de fluxo de caixa e análise de investimentos com interface via Telegram.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🚀 Visão Geral
 
-## Description
+O **Personal Finance** é uma aplicação desenvolvida em NestJS focada em simplicidade e precisão. Ele permite que usuários gerenciem suas despesas e portfólio de investimentos (incluindo ativos de renda variável e criptoativos) diretamente através de um bot no Telegram, com suporte a processamento assíncrono de notas fiscais via OCR.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 🛠️ Stack Tecnológica
 
-## Project setup
+- **Framework:** [NestJS](https://nestjs.com/) (Node.js)
+- **Linguagem:** TypeScript
+- **ORM:** [Prisma](https://www.prisma.io/) (PostgreSQL via Neon)
+- **Banco de Dados:** PostgreSQL & Redis (BullMQ para processamento assíncrono)
+- **Documentação:** MkDocs (Material Theme) & Swagger
+- **Validação:** Zod
 
-```bash
-$ npm install
-```
+## 🏗️ Arquitetura
 
-## Compile and run the project
+O projeto segue uma arquitetura modular dividida por domínios:
 
-```bash
-# development
-$ npm run start
+- **Expenses:** Gestão de fluxo de caixa e despesas diárias.
+- **Investments:** Controle de portfólio e cálculo de Preço Médio (PM).
+- **Market:** Integração com APIs de dados de mercado financeiro.
+- **Processor:** Processamento de tarefas pesadas (OCR/Tesseract.js).
+- **Telegram:** Interface principal de interação com o usuário.
 
-# watch mode
-$ npm run start:dev
+## 🔧 Como Iniciar (Desenvolvimento)
 
-# production mode
-$ npm run start:prod
-```
+O projeto está totalmente containerizado para facilitar o setup inicial.
 
-## Run tests
+### Pré-requisitos
+- Docker e Docker Compose instalados.
 
-```bash
-# unit tests
-$ npm run test
+### Passo a Passo
 
-# e2e tests
-$ npm run test:e2e
+1. **Clonar o repositório:**
+   ```bash
+   git clone <repo-url>
+   cd personal_finance
+   ```
 
-# test coverage
-$ npm run test:cov
-```
+2. **Configurar variáveis de ambiente:**
+   ```bash
+   cp .env.example .env # Se disponível, ou configure o DATABASE_URL e REDIS_URL
+   ```
 
-## Deployment
+3. **Subir o ambiente com Docker:**
+   ```bash
+   docker compose up --build
+   ```
+   *O container da aplicação rodará automaticamente os testes e iniciará em **watch mode**.*
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+4. **Acessar a documentação:**
+   - **Swagger:** `http://localhost:3000/docs`
+   - **MkDocs:** `mkdocs serve` (localmente em `http://localhost:8000`)
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## 🧪 Testes e Qualidade
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+- **Testes:** `npm run test` (unitários) ou `npm run test:e2e` (integração).
+- **Linting:** O projeto utiliza ESLint, Markdownlint e Commitlint (Husky) para garantir a qualidade do código e do histórico do Git.
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+---
+*Este projeto segue rigorosamente as diretrizes definidas no `GEMINI.md`.*
