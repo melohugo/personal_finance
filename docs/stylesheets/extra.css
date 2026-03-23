@@ -1,0 +1,14 @@
+:root > * {
+  /* Gruvbox Burnt Yellow: #FABD2F */
+  --md-primary-fg-color: #FABD2F;
+  --md-primary-fg-color--light: #FABD2F;
+  --md-primary-fg-color--dark: #D79921;
+  --md-accent-fg-color: #FABD2F;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #282828;
+  --md-default-fg-color: #EBDBB2;
+  --md-default-fg-color--light: #A89984;
+  --md-default-fg-color--lighter: #928374;
+}

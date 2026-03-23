@@ -1,0 +1,43 @@
+site_name: Personal Finance
+
+theme:
+  name: material
+  palette:
+    # Default to dark mode (slate)
+    - scheme: slate
+      primary: amber
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    # Light mode option
+    - scheme: default
+      primary: amber
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - Product Specification:
+    - Scope: product-specification/scope.md
+    - User Stories: product-specification/user-stories.md
+  - Technical Design:
+    - Architecture Overview: technical-design/architecture-overview.md
+    - Database Schema: technical-design/database-schema.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
