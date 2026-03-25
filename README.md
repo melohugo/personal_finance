@@ -30,25 +30,30 @@ O projeto segue uma arquitetura modular dividida por domínios:
 O projeto está totalmente containerizado para facilitar o setup inicial.
 
 ### Pré-requisitos
+
 - Docker e Docker Compose instalados.
 
 ### Passo a Passo
 
 1. **Clonar o repositório:**
+
    ```bash
    git clone <repo-url>
    cd personal_finance
    ```
 
 2. **Configurar variáveis de ambiente:**
+
    ```bash
    cp .env.example .env # Se disponível, ou configure o DATABASE_URL e REDIS_URL
    ```
 
 3. **Subir o ambiente com Docker:**
+
    ```bash
    docker compose up --build
    ```
+
    *O container da aplicação rodará automaticamente os testes e iniciará em **watch mode**.*
 
 4. **Acessar a documentação:**

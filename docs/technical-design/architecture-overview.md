@@ -72,6 +72,7 @@ graph TD
     Market --> Crypto 
 
 ```
+
 ## Diagrama de Sequência (Processamento Assíncrono)
 
 **O que modela:** A ordem temporal das mensagens e a interação entre os componentes durante o ciclo de vida de uma requisição de entrada de dados.
@@ -107,20 +108,22 @@ sequenceDiagram
     T->>U: Mensagem final de sucesso
 ```
 
-
-# Especificação de Arquitetura Modular
+## Especificação de Arquitetura Modular
 
 **Framework:** NestJS (Node.js)
 
 ---
 
 ## 1. Visão Geral
+
 O **FinanceBot** é um ecossistema de gestão financeira e de investimentos operado via Telegram. A solução utiliza OCR (Optical Character Recognition) para automação de entradas de gastos e integração com APIs de mercado financeiro para atualização de portfólio de ativos (FIIs e Cripto).
 
 ## 2. Padrões de Arquitetura
+
 A aplicação segue o padrão de **Arquitetura Modular do NestJS**, garantindo baixo acoplamento e alta coesão através de Injeção de Dependência e separação clara de domínios.
 
-### 2.1 Princípios Adotados:
+### 2.1 Princípios Adotados
+
 * **Separation of Concerns (SoC):** Cada módulo gerencia uma entidade ou funcionalidade específica.
 * **Asynchronous Processing:** Tarefas de alto consumo de CPU (OCR) são delegadas a Workers via filas (BullMQ/Redis) para manter a responsividade da interface no Telegram.
 * **Multi-tenancy Ready:** Estruturado para suportar múltiplos usuários (como membros da família) isolando os dados pelo `user_id` do Telegram.
@@ -130,34 +133,39 @@ A aplicação segue o padrão de **Arquitetura Modular do NestJS**, garantindo b
 ## 3. Estrutura de Módulos e Responsabilidades
 
 ### 3.1 `TelegramModule`
+
 * **Responsabilidade:** Camada de Interface e Comunicação.
 * **Funções:**
-    * Configuração do engine **Telegraf.js**.
-    * Tratamento de comandos (`/start`, `/gastos`, `/investir`).
-    * Gestão de `callbacks` para botões inline (Confirmar/Editar).
-    * Envio de feedbacks visuais e mensagens de status.
+  * Configuração do engine **Telegraf.js**.
+  * Tratamento de comandos (`/start`, `/gastos`, `/investir`).
+  * Gestão de `callbacks` para botões inline (Confirmar/Editar).
+  * Envio de feedbacks visuais e mensagens de status.
 
 ### 3.2 `ExpensesModule` (Gastos)
+
 * **Responsabilidade:** Regras de negócio para saídas financeiras.
 * **Funções:**
-    * CRUD de transações de gastos mensais.
-    * Lógica de categorização e agrupamento para relatórios.
+  * CRUD de transações de gastos mensais.
+  * Lógica de categorização e agrupamento para relatórios.
 
 ### 3.3 `InvestmentsModule` (Ativos)
+
 * **Responsabilidade:** Gestão de patrimônio e performance.
 * **Funções:**
-    * Controle de posição (Ticker, Quantidade, Custo).
-    * **Cálculo Automático:** Lógica de Preço Médio (PM) e Lucro/Prejuízo (P&L) latente e realizado.
+  * Controle de posição (Ticker, Quantidade, Custo).
+  * **Cálculo Automático:** Lógica de Preço Médio (PM) e Lucro/Prejuízo (P&L) latente e realizado.
 
 ### 3.4 `MarketModule`
+
 * **Responsabilidade:** Gateway de integração com dados externos.
 * **Provedores:**
-    * **BrapiService:** Consumo de cotações em tempo real para ativos da B3 (FIIs e Ações).
-    * **CryptoService (CoinGecko):** Monitoramento de preços de Bitcoin e outras criptomoedas.
+  * **BrapiService:** Consumo de cotações em tempo real para ativos da B3 (FIIs e Ações).
+  * **CryptoService (CoinGecko):** Monitoramento de preços de Bitcoin e outras criptomoedas.
 
 ### 3.5 `ProcessorModule` (The Worker)
+
 * **Responsabilidade:** Processamento de tarefas pesadas e inteligência de dados.
 * **Serviços:**
-    * **OCRService:** Orquestração do **Tesseract.js** para extração de texto de imagens.
-    * **IntelligenceService:** Algoritmos de Parsing e Pattern Matching (Regex) para identificar valores e sugerir categorias baseadas no histórico do usuário.
+  * **OCRService:** Orquestração do **Tesseract.js** para extração de texto de imagens.
+  * **IntelligenceService:** Algoritmos de Parsing e Pattern Matching (Regex) para identificar valores e sugerir categorias baseadas no histórico do usuário.
 * **Fila:** Implementação do **BullMQ** para gerenciar o estado dos Jobs em background.
