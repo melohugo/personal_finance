@@ -8,7 +8,13 @@ import { ProcessorModule } from './modules/processor/processor.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 
 @Module({
-  imports: [ExpensesModule, InvestmentsModule, MarketModule, ProcessorModule, TelegramModule],
+  imports: [
+    ExpensesModule,
+    InvestmentsModule,
+    MarketModule,
+    ProcessorModule,
+    TelegramModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
