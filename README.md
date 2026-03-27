@@ -27,13 +27,14 @@ O projeto segue uma arquitetura modular dividida por domínios:
 
 ## 🔧 Como Iniciar (Desenvolvimento)
 
-O projeto está totalmente containerizado para facilitar o setup inicial.
+O projeto pode ser executado via Docker (recomendado) ou diretamente no ambiente local.
 
 ### Pré-requisitos
 
-- Docker e Docker Compose instalados.
+- Docker e Docker Compose instalados (para execução via container).
+- Node.js (versão LTS) e Python 3.10+ (para desenvolvimento local).
 
-### Passo a Passo
+### Passo a Passo (Docker)
 
 1. **Clonar o repositório:**
 
@@ -56,7 +57,25 @@ O projeto está totalmente containerizado para facilitar o setup inicial.
 
    *O container da aplicação rodará automaticamente os testes e iniciará em **watch mode**.*
 
-4. **Acessar a documentação:**
+### Passo a Passo (Ambiente Local)
+
+Para ferramentas de linting, IDE e scripts auxiliares, recomenda-se configurar o ambiente local:
+
+1. **Instalar dependências do Node.js:**
+
+   ```bash
+   npm install
+   ```
+
+2. **Configurar ambiente virtual Python e instalar dependências:**
+
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # No Windows: .venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+3. **Acessar a documentação:**
    - **Swagger:** `http://localhost:3000/docs`
    - **MkDocs:** `mkdocs serve` (localmente em `http://localhost:8000`)
 
@@ -64,6 +83,3 @@ O projeto está totalmente containerizado para facilitar o setup inicial.
 
 - **Testes:** `npm run test` (unitários) ou `npm run test:e2e` (integração).
 - **Linting:** O projeto utiliza ESLint, Markdownlint e Commitlint (Husky) para garantir a qualidade do código e do histórico do Git.
-
----
-*Este projeto segue rigorosamente as diretrizes definidas no `GEMINI.md`.*
