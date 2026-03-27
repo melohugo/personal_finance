@@ -1,0 +1,19 @@
+name: Semgrep
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  semgrep:
+    name: Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        run: |
+          python3 -m pip install semgrep
+          semgrep scan --config auto --error
+        continue-on-error: true
