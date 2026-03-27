@@ -12,8 +12,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run Semgrep
-        run: |
-          python3 -m pip install semgrep
-          semgrep scan --config auto --error
+      - name: Run Semgrep via Docker
+        run: docker run --rm -v "$(pwd):/src" semgrep/semgrep semgrep scan --config auto --error
         continue-on-error: true
