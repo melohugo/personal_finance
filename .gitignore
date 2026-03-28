@@ -18,10 +18,12 @@ lerna-debug.log*
 .env.development
 .env.test
 .env.production
+.sonar.env
 
 # temp directory
 .temp
 .tmp
+.scannerwork/
 
 /generated/prisma
 
