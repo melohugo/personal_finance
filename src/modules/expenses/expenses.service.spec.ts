@@ -60,5 +60,21 @@ describe('ExpensesService', () => {
       }));
       expect(result).toBeDefined();
     });
+
+    it('should throw an error if amount is zero', async () => {
+      await expect(service.createFromTelegram({
+        telegramId,
+        amount: 0,
+        categoryName,
+      })).rejects.toThrow('Amount must be greater than zero');
+    });
+
+    it('should throw an error if amount is negative', async () => {
+      await expect(service.createFromTelegram({
+        telegramId,
+        amount: -10,
+        categoryName,
+      })).rejects.toThrow('Amount must be greater than zero');
+    });
   });
 });
