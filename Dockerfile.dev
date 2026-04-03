@@ -2,8 +2,8 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Instala dependências básicas para o Prisma e saúde do container
-RUN apk add --no-cache openssl
+# Instala dependências básicas para o Prisma, saúde do container e certificados SSL
+RUN apk add --no-cache openssl libc6-compat ca-certificates curl && update-ca-certificates
 
 # Copia arquivos de dependências
 COPY package*.json ./
@@ -18,5 +18,5 @@ COPY . .
 # Gera o Prisma Client
 RUN npx prisma generate
 
-# Comando para rodar testes e depois iniciar em modo watch
-CMD ["sh", "-c", "npm run test && npm run start:dev"]
+# Comando para rodar testes e depois iniciar em modo watch, priorizando IPv4 para evitar timeouts de rede
+CMD ["sh", "-c", "npm run test && node --dns-result-order=ipv4first node_modules/.bin/nest start --watch"]
