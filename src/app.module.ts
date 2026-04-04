@@ -7,10 +7,12 @@ import { InvestmentsModule } from './modules/investments/investments.module';
 import { MarketModule } from './modules/market/market.module';
 import { ProcessorModule } from './modules/processor/processor.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
+import { PrismaModule } from './common/prisma.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
     ExpensesModule,
     InvestmentsModule,
     MarketModule,
@@ -21,3 +23,4 @@ import { TelegramModule } from './modules/telegram/telegram.module';
   providers: [AppService],
 })
 export class AppModule {}
+
