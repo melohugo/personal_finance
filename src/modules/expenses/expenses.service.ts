@@ -12,6 +12,30 @@ export class ExpensesService {
   constructor(private prisma: PrismaService) {}
 
   async createFromTelegram(dto: CreateExpenseFromTelegramDto) {
-    throw new Error('Not implemented');
+    const { telegramId, amount, categoryName } = dto;
+
+    return await this.prisma.expense.create({
+      data: {
+        amount: amount,
+        date: new Date(),
+        user: {
+          connect: { telegram_id: telegramId },
+        },
+        category: {
+          connectOrCreate: {
+            where: {
+              name_telegram_id: {
+                name: categoryName,
+                telegram_id: telegramId,
+              },
+            },
+            create: {
+              name: categoryName,
+              telegram_id: telegramId,
+            },
+          },
+        },
+      },
+    });
   }
 }

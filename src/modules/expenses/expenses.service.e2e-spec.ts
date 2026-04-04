@@ -6,6 +6,7 @@ import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers
 import { execSync } from 'child_process';
 
 describe('ExpensesService (Integration)', () => {
+  let module: TestingModule;
   let service: ExpensesService;
   let prisma: PrismaService;
   let container: StartedPostgreSqlContainer;
@@ -13,18 +14,16 @@ describe('ExpensesService (Integration)', () => {
   const telegramId = 999888777n;
 
   beforeAll(async () => {
-    // Start PostgreSQL container
     container = await new PostgreSqlContainer('postgres:15-alpine').start();
     const databaseUrl = `postgresql://${container.getUsername()}:${container.getPassword()}@${container.getHost()}:${container.getMappedPort(5432)}/${container.getDatabase()}?schema=public`;
 
-    // Run migrations (db push) to sync schema with the container database
     execSync(`npx prisma db push --url="${databaseUrl}" --accept-data-loss`, {
       stdio: 'inherit',
     });
 
     process.env.DATABASE_URL = databaseUrl;
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
           isGlobal: true,
@@ -37,11 +36,11 @@ describe('ExpensesService (Integration)', () => {
     service = module.get<ExpensesService>(ExpensesService);
     prisma = module.get<PrismaService>(PrismaService);
     await prisma.$connect();
-  }, 60000); // Higher timeout for container start
+  }, 60000);
 
   afterAll(async () => {
-    if (prisma) {
-      await prisma.$disconnect();
+    if (module) {
+      await module.close();
     }
     if (container) {
       await container.stop();
@@ -49,10 +48,9 @@ describe('ExpensesService (Integration)', () => {
   });
 
   beforeEach(async () => {
-    // Basic cleanup for each test if necessary (though we start with a fresh DB)
-    await prisma.expense.deleteMany({ where: { telegram_id: telegramId } });
-    await prisma.category.deleteMany({ where: { telegram_id: telegramId } });
-    await prisma.user.deleteMany({ where: { telegram_id: telegramId } });
+    await prisma.expense.deleteMany({});
+    await prisma.category.deleteMany({});
+    await prisma.user.deleteMany({});
 
     await prisma.user.create({
       data: { telegram_id: telegramId },
@@ -77,11 +75,65 @@ describe('ExpensesService (Integration)', () => {
     });
     expect(category).toBeDefined();
     expect(category?.name).toBe(categoryName);
+  });
 
-    const expense = await prisma.expense.findFirst({
-      where: { telegram_id: telegramId, category_id: category?.id },
+  it('should reuse existing category for the same user', async () => {
+    const categoryName = 'Alimentação';
+    
+    await service.createFromTelegram({ telegramId, amount: 50, categoryName });
+    await service.createFromTelegram({ telegramId, amount: 100, categoryName });
+
+    const categories = await prisma.category.findMany({
+      where: { telegram_id: telegramId, name: categoryName },
     });
-    expect(expense).toBeDefined();
-    expect(Number(expense?.amount)).toBe(amount);
+
+    expect(categories).toHaveLength(1);
+    const expenses = await prisma.expense.findMany({
+      where: { telegram_id: telegramId, category_id: categories[0].id },
+    });
+    expect(expenses).toHaveLength(2);
+  });
+
+  it('should handle high precision decimal amounts correctly', async () => {
+    const amount = 0.12345678;
+    const categoryName = 'Investimento';
+
+    const result = await service.createFromTelegram({
+      telegramId,
+      amount,
+      categoryName,
+    });
+
+    const expense = await prisma.expense.findUnique({
+      where: { id: result.id },
+    });
+
+    expect(expense?.amount.toNumber()).toBe(amount);
+  });
+
+  it('should throw an error if user does not exist', async () => {
+    const nonExistentId = 12345n;
+    
+    await expect(service.createFromTelegram({
+      telegramId: nonExistentId,
+      amount: 10,
+      categoryName: 'Teste',
+    })).rejects.toThrow();
+  });
+
+  it('should handle concurrent requests for a new category without duplication', async () => {
+    const categoryName = 'Novo';
+    const amount = 10;
+
+    await Promise.all([
+      service.createFromTelegram({ telegramId, amount, categoryName }),
+      service.createFromTelegram({ telegramId, amount, categoryName }),
+    ]);
+
+    const categories = await prisma.category.findMany({
+      where: { telegram_id: telegramId, name: categoryName },
+    });
+
+    expect(categories).toHaveLength(1);
   });
 });
