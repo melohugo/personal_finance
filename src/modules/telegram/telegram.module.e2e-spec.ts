@@ -2,10 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TelegramService } from './telegram.service';
 import { TelegramModule } from './telegram.module';
 import { PrismaService } from '../../common/prisma.service';
+import { PrismaModule } from '../../common/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { execSync } from 'child_process';
 import { Context } from 'telegraf';
+import { getBotToken } from 'nestjs-telegraf';
 
 describe('TelegramModule (Integration)', () => {
   let moduleRef: TestingModule;
@@ -24,14 +26,23 @@ describe('TelegramModule (Integration)', () => {
     });
 
     process.env.DATABASE_URL = databaseUrl;
-    process.env.TELEGRAM_BOT_TOKEN = 'mock_token'; // Prevents telegraf from failing
+    process.env.TELEGRAM_BOT_TOKEN = 'mock_token';
 
     moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true }),
+        PrismaModule,
         TelegramModule,
       ],
-    }).compile();
+    })
+    .overrideProvider(getBotToken())
+    .useValue({
+      handleUpdate: jest.fn(),
+      launch: jest.fn(),
+      stop: jest.fn(),
+      telegram: { getMe: jest.fn().mockResolvedValue({ id: 1, first_name: 'Bot' }) },
+    })
+    .compile();
 
     service = moduleRef.get<TelegramService>(TelegramService);
     prisma = moduleRef.get<PrismaService>(PrismaService);
