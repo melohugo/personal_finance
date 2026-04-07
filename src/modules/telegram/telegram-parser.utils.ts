@@ -1,4 +1,7 @@
-export function parseGastoCommand(args: string): { amount: number; categoryName: string } {
+export function parseGastoCommand(args: string): {
+  amount: number;
+  categoryName: string;
+} {
   const parts = args.trim().split(/\s+/);
 
   if (parts.length < 2) {

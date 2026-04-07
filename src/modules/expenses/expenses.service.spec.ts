@@ -1,11 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { ExpensesService } from './expenses.service';
 import { PrismaService } from '../../common/prisma.service';
 
 const mockPrisma = {
-  category: {
-    upsert: jest.fn(),
-  },
   expense: {
     create: jest.fn(),
   },
@@ -38,9 +37,12 @@ describe('ExpensesService', () => {
     const amount = 50.5;
     const categoryName = 'Alimentação';
 
-    it('should create a category (if not exists) and then the expense', async () => {
-      mockPrisma.category.upsert.mockResolvedValue({ id: 'cat-123', name: categoryName });
-      mockPrisma.expense.create.mockResolvedValue({ id: 'exp-123', amount, category_id: 'cat-123' });
+    it('should create an expense with connectOrCreate for category', async () => {
+      (mockPrisma.expense.create as jest.Mock).mockResolvedValue({
+        id: 'exp-123',
+        amount,
+        category_id: 'cat-123',
+      });
 
       const result = await service.createFromTelegram({
         telegramId,
@@ -48,33 +50,49 @@ describe('ExpensesService', () => {
         categoryName,
       });
 
-      expect(mockPrisma.category.upsert).toHaveBeenCalledWith(expect.objectContaining({
-        where: { name_telegram_id: { name: categoryName, telegram_id: telegramId } },
-      }));
-      expect(mockPrisma.expense.create).toHaveBeenCalledWith(expect.objectContaining({
-        data: expect.objectContaining({
-          amount,
-          telegram_id: telegramId,
-          category_id: 'cat-123',
+      expect(mockPrisma.expense.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            amount,
+            category: {
+              connectOrCreate: {
+                where: {
+                  name_telegram_id: {
+                    name: categoryName,
+                    telegram_id: telegramId,
+                  },
+                },
+                create: {
+                  name: categoryName,
+                  telegram_id: telegramId,
+                },
+              },
+            },
+          }),
         }),
-      }));
+      );
       expect(result).toBeDefined();
     });
 
+
     it('should throw an error if amount is zero', async () => {
-      await expect(service.createFromTelegram({
-        telegramId,
-        amount: 0,
-        categoryName,
-      })).rejects.toThrow('Amount must be greater than zero');
+      await expect(
+        service.createFromTelegram({
+          telegramId,
+          amount: 0,
+          categoryName,
+        }),
+      ).rejects.toThrow('Amount must be greater than zero');
     });
 
     it('should throw an error if amount is negative', async () => {
-      await expect(service.createFromTelegram({
-        telegramId,
-        amount: -10,
-        categoryName,
-      })).rejects.toThrow('Amount must be greater than zero');
+      await expect(
+        service.createFromTelegram({
+          telegramId,
+          amount: -10,
+          categoryName,
+        }),
+      ).rejects.toThrow('Amount must be greater than zero');
     });
   });
 });

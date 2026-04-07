@@ -14,6 +14,10 @@ export class ExpensesService {
   async createFromTelegram(dto: CreateExpenseFromTelegramDto) {
     const { telegramId, amount, categoryName } = dto;
 
+    if (amount <= 0) {
+      throw new Error('Amount must be greater than zero');
+    }
+
     return await this.prisma.expense.create({
       data: {
         amount: amount,

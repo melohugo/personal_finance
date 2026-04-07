@@ -1,10 +1,15 @@
+/* eslint-disable @typescript-eslint/unbound-method */
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { TelegramService } from './telegram.service';
 import { TelegramModule } from './telegram.module';
 import { PrismaService } from '../../common/prisma.service';
 import { PrismaModule } from '../../common/prisma.module';
 import { ConfigModule } from '@nestjs/config';
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import {
+  PostgreSqlContainer,
+  StartedPostgreSqlContainer,
+} from '@testcontainers/postgresql';
 import { execSync } from 'child_process';
 import { Context } from 'telegraf';
 import { getBotToken } from 'nestjs-telegraf';
@@ -35,14 +40,16 @@ describe('TelegramModule (Integration)', () => {
         TelegramModule,
       ],
     })
-    .overrideProvider(getBotToken())
-    .useValue({
-      handleUpdate: jest.fn(),
-      launch: jest.fn(),
-      stop: jest.fn(),
-      telegram: { getMe: jest.fn().mockResolvedValue({ id: 1, first_name: 'Bot' }) },
-    })
-    .compile();
+      .overrideProvider(getBotToken())
+      .useValue({
+        handleUpdate: jest.fn(),
+        launch: jest.fn(),
+        stop: jest.fn(),
+        telegram: {
+          getMe: jest.fn().mockResolvedValue({ id: 1, first_name: 'Bot' }),
+        },
+      })
+      .compile();
 
     service = moduleRef.get<TelegramService>(TelegramService);
     prisma = moduleRef.get<PrismaService>(PrismaService);
@@ -69,11 +76,12 @@ describe('TelegramModule (Integration)', () => {
     });
   });
 
-  const mockContext = (text: string, id: bigint) => ({
-    message: { text, from: { id: Number(id) } },
-    from: { id: Number(id) },
-    reply: jest.fn(),
-  } as unknown as Context);
+  const mockContext = (text: string, id: bigint) =>
+    ({
+      message: { text, from: { id: Number(id) } },
+      from: { id: Number(id) },
+      reply: jest.fn().mockResolvedValue({} as any),
+    }) as unknown as Context;
 
   it('should complete the full trip: command -> service -> real database', async () => {
     const ctx = mockContext('/gasto 85.50 Restaurante', telegramId);
@@ -82,13 +90,13 @@ describe('TelegramModule (Integration)', () => {
 
     // Verify reply
     expect(ctx.reply).toHaveBeenCalledWith(
-      expect.stringContaining('Gasto de R$ 85.5 registrado em Restaurante! ✅')
+      expect.stringContaining('Gasto de R$ 85.5 registrado em Restaurante! ✅'),
     );
 
     // Verify database persistence
     const expense = await prisma.expense.findFirst({
       where: { telegram_id: telegramId },
-      include: { category: true }
+      include: { category: true },
     });
 
     expect(expense).toBeDefined();
@@ -99,12 +107,12 @@ describe('TelegramModule (Integration)', () => {
   it('should handle large Telegram IDs correctly (BigInt)', async () => {
     const largeId = 999999999999n;
     await prisma.user.create({ data: { telegram_id: largeId } });
-    
+
     const ctx = mockContext('/gasto 10 Teste', largeId);
     await service.onGastoCommand(ctx);
 
     const expense = await prisma.expense.findFirst({
-      where: { telegram_id: largeId }
+      where: { telegram_id: largeId },
     });
     expect(expense?.telegram_id).toBe(largeId);
   });

@@ -19,12 +19,18 @@ describe('TelegramParserUtils', () => {
     });
 
     it('should throw error if arguments are missing', () => {
-      expect(() => parseGastoCommand('')).toThrow('Use o formato: /gasto <valor> <categoria>');
-      expect(() => parseGastoCommand('50.5')).toThrow('Use o formato: /gasto <valor> <categoria>');
+      expect(() => parseGastoCommand('')).toThrow(
+        'Use o formato: /gasto <valor> <categoria>',
+      );
+      expect(() => parseGastoCommand('50.5')).toThrow(
+        'Use o formato: /gasto <valor> <categoria>',
+      );
     });
 
     it('should throw error if amount is invalid', () => {
-      expect(() => parseGastoCommand('abc Alimentação')).toThrow('Valor inválido. Por favor, envie um número.');
+      expect(() => parseGastoCommand('abc Alimentação')).toThrow(
+        'Valor inválido. Por favor, envie um número.',
+      );
     });
 
     it('should handle multiple spaces between arguments', () => {

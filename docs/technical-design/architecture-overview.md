@@ -192,4 +192,3 @@ Para garantir que o comportamento do sistema seja idêntico entre os ambientes d
 ### 4.2 Precisão Numérica
 
 Todos os testes que envolvem cálculos (Preço Médio, P&L, Gastos) validam a precisão de até 8 casas decimais, assegurando que o uso do tipo `Decimal` do Prisma e `numeric` do PostgreSQL esteja funcionando conforme o esperado, especialmente para frações de criptoativos.
-

@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ExpensesService } from './expenses.service';
 import { PrismaService } from '../../common/prisma.service';
 import { ConfigModule } from '@nestjs/config';
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import {
+  PostgreSqlContainer,
+  StartedPostgreSqlContainer,
+} from '@testcontainers/postgresql';
 import { execSync } from 'child_process';
 
 describe('ExpensesService (Integration)', () => {
@@ -71,7 +74,9 @@ describe('ExpensesService (Integration)', () => {
     expect(Number(result.amount)).toBe(amount);
 
     const category = await prisma.category.findUnique({
-      where: { name_telegram_id: { name: categoryName, telegram_id: telegramId } },
+      where: {
+        name_telegram_id: { name: categoryName, telegram_id: telegramId },
+      },
     });
     expect(category).toBeDefined();
     expect(category?.name).toBe(categoryName);
@@ -79,7 +84,7 @@ describe('ExpensesService (Integration)', () => {
 
   it('should reuse existing category for the same user', async () => {
     const categoryName = 'Alimentação';
-    
+
     await service.createFromTelegram({ telegramId, amount: 50, categoryName });
     await service.createFromTelegram({ telegramId, amount: 100, categoryName });
 
@@ -113,12 +118,14 @@ describe('ExpensesService (Integration)', () => {
 
   it('should throw an error if user does not exist', async () => {
     const nonExistentId = 12345n;
-    
-    await expect(service.createFromTelegram({
-      telegramId: nonExistentId,
-      amount: 10,
-      categoryName: 'Teste',
-    })).rejects.toThrow();
+
+    await expect(
+      service.createFromTelegram({
+        telegramId: nonExistentId,
+        amount: 10,
+        categoryName: 'Teste',
+      }),
+    ).rejects.toThrow();
   });
 
   it('should handle concurrent requests for a new category without duplication', async () => {
