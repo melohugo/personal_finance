@@ -169,3 +169,27 @@ A aplicação segue o padrão de **Arquitetura Modular do NestJS**, garantindo b
   * **OCRService:** Orquestração do **Tesseract.js** para extração de texto de imagens.
   * **IntelligenceService:** Algoritmos de Parsing e Pattern Matching (Regex) para identificar valores e sugerir categorias baseadas no histórico do usuário.
 * **Fila:** Implementação do **BullMQ** para gerenciar o estado dos Jobs em background.
+
+### 3.6 `CommonModule` (Infraestrutura)
+
+* **Responsabilidade:** Recursos compartilhados e integração com o core do sistema.
+* **PrismaService:** Implementação do ORM utilizando `@prisma/adapter-pg`. Esta escolha permite o uso de um pool de conexões nativo do driver `pg`, oferecendo maior controle sobre o ciclo de vida das conexões e resiliência a falhas de rede.
+
+---
+
+## 4. Estratégia de QA e Testes
+
+A qualidade do software é garantida através de uma pirâmide de testes que prioriza a integridade dos dados financeiros e a corretude das integrações.
+
+### 4.1 Testcontainers para Integração
+
+Para garantir que o comportamento do sistema seja idêntico entre os ambientes de desenvolvimento e produção, utilizamos **Testcontainers**.
+
+* **Isolamento Total:** Cada suíte de testes de integração (`.e2e-spec.ts`) inicia um container PostgreSQL (`postgres:15-alpine`) efêmero e exclusivo.
+* **Sincronização Dinâmica:** O schema do banco de dados é sincronizado no container via `npx prisma db push` antes da execução dos testes, garantindo que a versão do banco esteja sempre alinhada com os modelos do Prisma.
+* **Zero Config:** Elimina a necessidade de bancos de dados locais pré-configurados ("it works on my machine"), tornando o pipeline de CI/CD determinístico.
+
+### 4.2 Precisão Numérica
+
+Todos os testes que envolvem cálculos (Preço Médio, P&L, Gastos) validam a precisão de até 8 casas decimais, assegurando que o uso do tipo `Decimal` do Prisma e `numeric` do PostgreSQL esteja funcionando conforme o esperado, especialmente para frações de criptoativos.
+

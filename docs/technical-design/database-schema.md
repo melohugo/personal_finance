@@ -10,18 +10,23 @@ A persistência de dados foi projetada para garantir a integridade transacional 
 
 ```mermaid
 erDiagram
+    USUARIO ||--o{ CATEGORIA : define
     USUARIO ||--o{ GASTO : registra
+    CATEGORIA ||--o{ GASTO : categoriza
     USUARIO ||--o{ ATIVO : detem
     ATIVO ||--o{ OPERACAO_ATIVO : possui
 
     USUARIO {
-        string telegram_id
+        bigint telegram_id
+    }
+    CATEGORIA {
+        string id
         string nome
     }
     GASTO {
         decimal valor
-        string categoria
         datetime data
+        string descricao
     }
     ATIVO {
         string ticker
@@ -44,41 +49,49 @@ erDiagram
 
 ```mermaid
 erDiagram
-    users ||--o{ expenses : "user_id"
-    users ||--o{ assets : "user_id"
+    users ||--o{ categories : "telegram_id"
+    users ||--o{ expenses : "telegram_id"
+    categories ||--o{ expenses : "category_id"
+    users ||--o{ assets : "telegram_id" (indireto)
+    users ||--o{ asset_operations : "telegram_id"
     assets ||--o{ asset_operations : "asset_id"
 
     users {
         bigint telegram_id PK
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    categories {
+        uuid id PK
         varchar name
-        timestamp_with_time_zone created_at
+        bigint telegram_id FK
     }
 
     expenses {
         uuid id PK
-        bigint user_id FK
+        bigint telegram_id FK
         numeric amount
-        varchar category
-        timestamp_with_time_zone date
+        uuid category_id FK
+        timestamp date
         text description
     }
 
     assets {
         uuid id PK
-        bigint user_id FK
         varchar ticker
         varchar asset_type
         varchar currency
-        timestamp_with_time_zone updated_at
     }
 
     asset_operations {
         uuid id PK
+        bigint telegram_id FK
         uuid asset_id FK
         numeric quantity
         numeric unit_price
         varchar operation_type
-        timestamp_with_time_zone date
+        timestamp date
     }
 ```
 
@@ -89,6 +102,9 @@ Abaixo estão detalhadas as restrições e finalidades dos principais atributos 
 | Atributo | Detalhes Técnicos | Descrição |
 | :--- | :--- | :--- |
 | **expenses.amount** | `DECIMAL(18, 8)` | Valor da transação com precisão para 8 casas decimais. |
-| **assets.asset_type** | `VARCHAR` | Classificação do ativo: Ação, FII, Cripto ou ETF. |
-| **assets.currency** | `VARCHAR` | Moeda de origem do ativo: BRL ou USD. |
-| **asset_operations.operation_type** | `VARCHAR` | Define se a movimentação é de COMPRA ou VENDA. |
+| **asset_operations.quantity** | `DECIMAL(18, 8)` | Quantidade de ativos operada. |
+| **asset_operations.unit_price** | `DECIMAL(18, 8)` | Preço unitário no momento da operação. |
+| **categories.name** | `VARCHAR` | Nome da categoria (ex: Alimentação, Saúde). |
+| **assets.asset_type** | `ENUM` | Classificação do ativo: STOCK, CRYPTO, REIT, FIAGRO. |
+| **assets.currency** | `ENUM` | Moeda de origem do ativo: BRL ou USD. |
+| **asset_operations.operation_type** | `ENUM` | Define se a movimentação é de BUY ou SELL. |
