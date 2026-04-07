@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { Pool } from 'pg';
@@ -9,6 +14,7 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
+  private readonly logger = new Logger(PrismaService.name);
   private pool: Pool;
 
   constructor(configService: ConfigService) {
@@ -18,7 +24,7 @@ export class PrismaService
     // Catch pool errors to prevent unhandled rejections when the DB shuts down
     pool.on('error', (err) => {
       if (err.message.includes('terminating connection')) return;
-      console.error('Unexpected pool error', err);
+      this.logger.error('Unexpected pool error', err);
     });
 
     const adapter = new PrismaPg(pool);
