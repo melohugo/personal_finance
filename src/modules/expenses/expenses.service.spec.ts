@@ -38,7 +38,7 @@ describe('ExpensesService', () => {
     const categoryName = 'Alimentação';
 
     it('should create an expense with connectOrCreate for category', async () => {
-      (mockPrisma.expense.create as jest.Mock).mockResolvedValue({
+      mockPrisma.expense.create.mockResolvedValue({
         id: 'exp-123',
         amount,
         category_id: 'cat-123',
@@ -73,7 +73,6 @@ describe('ExpensesService', () => {
       );
       expect(result).toBeDefined();
     });
-
 
     it('should throw an error if amount is zero', async () => {
       await expect(
