@@ -1,12 +1,12 @@
 // prisma/schema.prisma
 
 generator client {
-  provider = "prisma-client-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -15,9 +15,21 @@ model User {
   updated_at   DateTime  @updatedAt
 
   expenses     Expense[]
+  categories   Category[]
   operations   AssetOperation[]
 
   @@map("users")
+}
+
+model Category {
+  id           String    @id @default(uuid())
+  name         String
+  user         User      @relation(fields: [telegram_id], references: [telegram_id])
+  telegram_id  BigInt
+  expenses     Expense[]
+
+  @@unique([name, telegram_id])
+  @@map("categories")
 }
 
 model Expense {
@@ -25,7 +37,8 @@ model Expense {
   user         User      @relation(fields: [telegram_id], references: [telegram_id])
   telegram_id  BigInt
   amount       Decimal   @db.Decimal(18, 8)
-  category     String
+  category     Category  @relation(fields: [category_id], references: [id])
+  category_id  String
   date         DateTime
   description  String?
   created_at   DateTime  @default(now())
