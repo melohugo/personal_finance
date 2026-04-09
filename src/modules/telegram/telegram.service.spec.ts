@@ -3,14 +3,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TelegramService } from './telegram.service';
 import { ExpensesService } from '../expenses/expenses.service';
+import { UsersService } from '../users/users.service';
 import { Context } from 'telegraf';
 
 describe('TelegramService', () => {
   let service: TelegramService;
   let expensesService: ExpensesService;
+  let usersService: UsersService;
 
   const mockExpensesService = {
     createFromTelegram: jest.fn(),
+  };
+
+  const mockUsersService = {
+    getOrCreateUser: jest.fn(),
   };
 
   const mockContext = (text: string, telegramId = 12345) =>
@@ -29,15 +35,36 @@ describe('TelegramService', () => {
           useClass: TelegramService,
         },
         { provide: ExpensesService, useValue: mockExpensesService },
+        { provide: UsersService, useValue: mockUsersService },
       ],
     }).compile();
 
     service = module.get<TelegramService>(TelegramService);
     expensesService = module.get<ExpensesService>(ExpensesService);
+    usersService = module.get<UsersService>(UsersService);
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('start', () => {
+    it('should call getOrCreateUser and reply welcome message', async () => {
+      const telegramId = 12345;
+      const ctx = mockContext('/start', telegramId);
+      mockUsersService.getOrCreateUser.mockResolvedValue({
+        telegram_id: BigInt(telegramId),
+      });
+
+      await service.start(ctx);
+
+      expect(usersService.getOrCreateUser).toHaveBeenCalledWith(
+        BigInt(telegramId),
+      );
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Bem-vindo ao FinanceBot! 🚀'),
+      );
+    });
   });
 
   describe('onGastoCommand', () => {

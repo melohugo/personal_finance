@@ -6,6 +6,10 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async getOrCreateUser(telegramId: bigint) {
-    // TBD
+    return await this.prisma.user.upsert({
+      where: { telegram_id: telegramId },
+      update: {},
+      create: { telegram_id: telegramId },
+    });
   }
 }
