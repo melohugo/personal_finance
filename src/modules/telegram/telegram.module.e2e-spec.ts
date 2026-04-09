@@ -104,6 +104,30 @@ describe('TelegramModule (Integration)', () => {
     expect(expense?.category.name).toBe('Restaurante');
   });
 
+  it('should create a new user when /start is called', async () => {
+    const newTelegramId = 555444333n;
+
+    // Garante que o usuário não existe antes
+    await prisma.user.deleteMany({ where: { telegram_id: newTelegramId } });
+
+    const ctx = mockContext('/start', newTelegramId);
+
+    await service.start(ctx);
+
+    // Verifica se respondeu ao usuário
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('Bem-vindo ao FinanceBot! 🚀'),
+    );
+
+    // Verifica se o usuário foi criado no banco de dados real
+    const user = await prisma.user.findUnique({
+      where: { telegram_id: newTelegramId },
+    });
+
+    expect(user).toBeDefined();
+    expect(user?.telegram_id).toBe(newTelegramId);
+  });
+
   it('should handle large Telegram IDs correctly (BigInt)', async () => {
     const largeId = 999999999999n;
     await prisma.user.create({ data: { telegram_id: largeId } });
