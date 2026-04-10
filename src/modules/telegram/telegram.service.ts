@@ -2,13 +2,20 @@ import { Update, Start, Help, On, Ctx, Command } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 import { parseGastoCommand } from './telegram-parser.utils';
 import { ExpensesService } from '../expenses/expenses.service';
+import { UsersService } from '../users/users.service';
 
 @Update()
 export class TelegramService {
-  constructor(private readonly expensesService: ExpensesService) {}
+  constructor(
+    private readonly expensesService: ExpensesService,
+    private readonly usersService: UsersService,
+  ) {}
 
   @Start()
   async start(@Ctx() ctx: Context) {
+    const telegramId = BigInt(ctx.from?.id || 0);
+    await this.usersService.getOrCreateUser(telegramId);
+
     await ctx.reply(
       'Bem-vindo ao FinanceBot! 🚀\nUtilize os comandos para gerenciar seus gastos e investimentos.',
     );

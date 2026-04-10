@@ -3,11 +3,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TelegrafModule } from 'nestjs-telegraf';
 import { TelegramService } from './telegram.service';
 import { ExpensesModule } from '../expenses/expenses.module';
+import { UsersModule } from '../users/users.module';
 import * as Agent from 'https';
 
 @Module({
   imports: [
     ExpensesModule,
+    UsersModule,
     TelegrafModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
