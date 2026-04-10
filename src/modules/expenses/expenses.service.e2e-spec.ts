@@ -195,4 +195,19 @@ describe('ExpensesService (Integration)', () => {
     const foodFev = fev?.byCategory.find(c => c.name === foodName);
     expect(foodFev?.diffPrevMonth).toBe(50);
   });
+
+  it('should list all categories for a user', async () => {
+    await prisma.category.createMany({
+      data: [
+        { name: 'Alimentação', telegram_id: telegramId },
+        { name: 'Academia', telegram_id: telegramId },
+      ],
+    });
+
+    const result = await service.listCategories(telegramId);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].name).toBe('Academia');
+    expect(result[1].name).toBe('Alimentação');
+  });
 });

@@ -7,6 +7,10 @@ import { PrismaService } from '../../common/prisma.service';
 const mockPrisma = {
   expense: {
     create: jest.fn(),
+    findMany: jest.fn(),
+  },
+  category: {
+    findMany: jest.fn(),
   },
 };
 
@@ -182,6 +186,29 @@ describe('ExpensesService', () => {
       // Variação Transporte: ((50 - 100) / 100) * 100 = -50%
       const transportFev = fev?.byCategory.find((c) => c.name === 'Transporte');
       expect(transportFev?.diffPrevMonth).toBe(-50);
+    });
+  });
+
+  describe('listCategories', () => {
+    const telegramId = 123456789n;
+
+    it('should return categories for the user', async () => {
+      const categories = [
+        { id: '1', name: 'Academia', telegram_id: telegramId },
+        { id: '2', name: 'Alimentação', telegram_id: telegramId },
+      ];
+
+      // @ts-expect-error - mock prisma
+      mockPrisma.category.findMany = jest.fn().mockResolvedValue(categories);
+
+      const result = await service.listCategories(telegramId);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe('Academia');
+      expect(mockPrisma.category.findMany).toHaveBeenCalledWith({
+        where: { telegram_id: telegramId },
+        orderBy: { name: 'asc' },
+      });
     });
   });
 });
