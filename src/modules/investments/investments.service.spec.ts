@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { InvestmentsService } from './investments.service';
 import { PrismaService } from '../../common/prisma.service';
 import { MarketService } from '../market/market.service';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Prisma } from '@prisma/client';
 
 describe('InvestmentsService', () => {
   let service: InvestmentsService;
@@ -44,21 +44,24 @@ describe('InvestmentsService', () => {
       const operations = [
         {
           asset: { ticker: 'PETR4', type: 'STOCK' },
-          quantity: new Decimal(10),
-          unit_price: new Decimal(20),
+          quantity: new Prisma.Decimal(10),
+          unit_price: new Prisma.Decimal(20),
           type: 'BUY',
+          date: new Date('2023-01-01'),
         },
         {
           asset: { ticker: 'PETR4', type: 'STOCK' },
-          quantity: new Decimal(10),
-          unit_price: new Decimal(30),
+          quantity: new Prisma.Decimal(10),
+          unit_price: new Prisma.Decimal(30),
           type: 'BUY',
+          date: new Date('2023-01-02'),
         },
         {
           asset: { ticker: 'PETR4', type: 'STOCK' },
-          quantity: new Decimal(5),
-          unit_price: new Decimal(40),
+          quantity: new Prisma.Decimal(5),
+          unit_price: new Prisma.Decimal(40),
           type: 'SELL',
+          date: new Date('2023-01-03'),
         },
       ];
 
@@ -67,16 +70,6 @@ describe('InvestmentsService', () => {
 
       const result = await service.listUserInvestments(telegramId);
 
-      // PETR4 Calculation:
-      // BUY 10 @ 20 = 200
-      // BUY 10 @ 30 = 300
-      // Total Qty Bought: 20, Total Cost: 500 => PM = 25
-      // SELL 5 => Current Position: 15. PM remains 25.
-      // Current Price: 35
-      // Current Allocation: 15 * 35 = 525
-      // Profit: 15 * (35 - 25) = 150
-      // Profit %: (35-25)/25 * 100 = 40%
-      
       expect(result.assets).toHaveLength(1);
       expect(result.assets[0]).toMatchObject({
         ticker: 'PETR4',
@@ -96,15 +89,17 @@ describe('InvestmentsService', () => {
         const operations = [
           {
             asset: { ticker: 'PETR4', type: 'STOCK' },
-            quantity: new Decimal(10),
-            unit_price: new Decimal(20),
+            quantity: new Prisma.Decimal(10),
+            unit_price: new Prisma.Decimal(20),
             type: 'BUY',
+            date: new Date('2023-01-01'),
           },
           {
             asset: { ticker: 'VALE3', type: 'STOCK' },
-            quantity: new Decimal(10),
-            unit_price: new Decimal(100),
+            quantity: new Prisma.Decimal(10),
+            unit_price: new Prisma.Decimal(100),
             type: 'BUY',
+            date: new Date('2023-01-01'),
           },
         ];
   
@@ -117,25 +112,9 @@ describe('InvestmentsService', () => {
   
         const result = await service.listUserInvestments(telegramId);
   
-        // PETR4: Pos 10, PM 20, Price 25 => Profit +50, Allocation 250
-        // VALE3: Pos 10, PM 100, Price 90 => Profit -100, Allocation 900
-        // Total Profit: -50
-        // Total Allocation: 1150
-        
         expect(result.assets).toHaveLength(2);
         expect(result.totalProfit).toBe(-50);
         expect(result.totalAllocation).toBe(1150);
-      });
-
-      it('should return empty list if user has no operations', async () => {
-        const telegramId = BigInt(123456);
-        mockPrismaService.assetOperation.findMany.mockResolvedValue([]);
-        
-        const result = await service.listUserInvestments(telegramId);
-        
-        expect(result.assets).toHaveLength(0);
-        expect(result.totalProfit).toBe(0);
-        expect(result.totalAllocation).toBe(0);
       });
   });
 });

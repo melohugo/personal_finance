@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MarketService } from './market.service';
 import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
 import { of } from 'rxjs';
 
 describe('MarketService', () => {
   let service: MarketService;
   let config: ConfigService;
 
-  // Mock para o HttpService que será adicionado
   const mockHttpService = {
     get: jest.fn(),
   };
@@ -23,7 +23,7 @@ describe('MarketService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MarketService,
-        { provide: 'HttpService', useValue: mockHttpService },
+        { provide: HttpService, useValue: mockHttpService },
         { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
@@ -63,9 +63,17 @@ describe('MarketService', () => {
       );
     });
 
-    it('should return 0 or throw error if ticker not found', async () => {
+    it('should return 0 if ticker results are empty', async () => {
         mockHttpService.get.mockReturnValue(of({ data: { results: [] } }));
         const price = await service.getAssetPrice('INVALID');
+        expect(price).toBe(0);
+    });
+
+    it('should return 0 if an error occurs', async () => {
+        mockHttpService.get.mockImplementation(() => {
+            throw new Error('API Error');
+        });
+        const price = await service.getAssetPrice('PETR4');
         expect(price).toBe(0);
     });
   });
