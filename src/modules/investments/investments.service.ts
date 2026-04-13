@@ -54,6 +54,12 @@ export class InvestmentsService {
         assetData[ticker].totalQtyBought += qty;
       } else {
         assetData[ticker].qty -= qty;
+        // Se a posição zerou, resetamos o custo para um novo PM no futuro
+        if (assetData[ticker].qty <= 0) {
+          assetData[ticker].totalCost = 0;
+          assetData[ticker].totalQtyBought = 0;
+          assetData[ticker].qty = 0;
+        }
       }
     }
 
