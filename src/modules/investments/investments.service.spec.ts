@@ -143,5 +143,51 @@ describe('InvestmentsService', () => {
         });
         expect(result.totalAllocation).toBe(0);
       });
+
+      it('should reset PM after total sale (Scenario: Buy 10@20, Sell 10@40, Buy 5@30)', async () => {
+        const telegramId = BigInt(123456);
+        
+        const operations = [
+          {
+            asset: { ticker: 'PETR4', type: 'STOCK' },
+            quantity: new Prisma.Decimal(10),
+            unit_price: new Prisma.Decimal(20),
+            type: 'BUY',
+            date: new Date('2023-01-01'),
+          },
+          {
+            asset: { ticker: 'PETR4', type: 'STOCK' },
+            quantity: new Prisma.Decimal(10),
+            unit_price: new Prisma.Decimal(40),
+            type: 'SELL',
+            date: new Date('2023-01-02'),
+          },
+          {
+            asset: { ticker: 'PETR4', type: 'STOCK' },
+            quantity: new Prisma.Decimal(5),
+            unit_price: new Prisma.Decimal(30),
+            type: 'BUY',
+            date: new Date('2023-01-03'),
+          },
+        ];
+
+        mockPrismaService.assetOperation.findMany.mockResolvedValue(operations);
+        mockMarketService.getAssetPrice.mockResolvedValue(35);
+
+        const result = await service.listUserInvestments(telegramId);
+
+        // Explicação:
+        // 1. Compra 10 @ 20 (PM=20, Qtd=10)
+        // 2. Vende 10 @ 40 (Qtd=0) -> PM deve resetar.
+        // 3. Compra 5 @ 30 (PM=30, Qtd=5) -> Se não resetar, o PM antigo (20) poluiria o novo.
+        
+        expect(result.assets).toHaveLength(1);
+        expect(result.assets[0]).toMatchObject({
+          ticker: 'PETR4',
+          position: 5,
+          pm: 30,
+          profit: 25, // 5 * (35 - 30)
+        });
+      });
   });
 });
