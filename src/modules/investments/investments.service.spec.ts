@@ -116,5 +116,32 @@ describe('InvestmentsService', () => {
         expect(result.totalProfit).toBe(-50);
         expect(result.totalAllocation).toBe(1150);
       });
+
+      it('should handle unavailable asset price correctly (currentPrice is null)', async () => {
+        const telegramId = BigInt(123456);
+      
+        const operations = [
+          {
+            asset: { ticker: 'PETR4', type: 'STOCK' },
+            quantity: new Prisma.Decimal(10),
+            unit_price: new Prisma.Decimal(20),
+            type: 'BUY',
+            date: new Date(),
+          },
+        ];
+  
+        mockPrismaService.assetOperation.findMany.mockResolvedValue(operations);
+        mockMarketService.getAssetPrice.mockResolvedValue(null); // API falhou ou não encontrou
+  
+        const result = await service.listUserInvestments(telegramId);
+  
+        expect(result.assets[0]).toMatchObject({
+          ticker: 'PETR4',
+          currentPrice: null,
+          profit: null,
+          allocation: null,
+        });
+        expect(result.totalAllocation).toBe(0);
+      });
   });
 });

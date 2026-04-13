@@ -63,18 +63,18 @@ describe('MarketService', () => {
       );
     });
 
-    it('should return 0 if ticker results are empty', async () => {
+    it('should return null if ticker results are empty', async () => {
         mockHttpService.get.mockReturnValue(of({ data: { results: [] } }));
         const price = await service.getAssetPrice('INVALID');
-        expect(price).toBe(0);
+        expect(price).toBeNull();
     });
 
-    it('should return 0 if an error occurs', async () => {
+    it('should return null if an error occurs', async () => {
         mockHttpService.get.mockImplementation(() => {
             throw new Error('API Error');
         });
         const price = await service.getAssetPrice('PETR4');
-        expect(price).toBe(0);
+        expect(price).toBeNull();
     });
   });
 });
