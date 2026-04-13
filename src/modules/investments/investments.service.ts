@@ -6,10 +6,10 @@ export interface InvestmentAsset {
   ticker: string;
   position: number;
   pm: number;
-  currentPrice: number;
-  allocation: number;
-  profit: number;
-  profitPercentage: number;
+  currentPrice: number | null;
+  allocation: number | null;
+  profit: number | null;
+  profitPercentage: number | null;
 }
 
 export interface UserInvestments {
