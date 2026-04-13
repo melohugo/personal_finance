@@ -18,5 +18,5 @@ COPY . .
 # Gera o Prisma Client
 RUN npx prisma generate
 
-# Comando para rodar testes e depois iniciar em modo watch, priorizando IPv4 para evitar timeouts de rede
-CMD ["sh", "-c", "npm run test && node --dns-result-order=ipv4first node_modules/.bin/nest start --watch"]
+# Comando para iniciar em modo watch, priorizando IPv4 para evitar timeouts de rede
+CMD ["node", "--dns-result-order=ipv4first", "node_modules/.bin/nest", "start", "--watch"]
