@@ -68,9 +68,9 @@ export class InvestmentsService {
       const pm = data.totalCost / data.totalQtyBought;
       const currentPrice = await this.marketService.getAssetPrice(ticker);
       
-      const allocation = data.qty * currentPrice;
-      const profit = data.qty * (currentPrice - pm);
-      const profitPercentage = ((currentPrice - pm) / pm) * 100;
+      const allocation = currentPrice !== null ? data.qty * currentPrice : null;
+      const profit = currentPrice !== null ? data.qty * (currentPrice - pm) : null;
+      const profitPercentage = currentPrice !== null ? ((currentPrice - pm) / pm) * 100 : null;
 
       assets.push({
         ticker,
@@ -82,8 +82,8 @@ export class InvestmentsService {
         profitPercentage,
       });
 
-      totalProfit += profit;
-      totalAllocation += allocation;
+      if (profit !== null) totalProfit += profit;
+      if (allocation !== null) totalAllocation += allocation;
     }
 
     return {

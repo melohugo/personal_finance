@@ -13,7 +13,7 @@ export class MarketService {
     private readonly configService: ConfigService,
   ) {}
 
-  async getAssetPrice(ticker: string): Promise<number> {
+  async getAssetPrice(ticker: string): Promise<number | null> {
     try {
       const token = this.configService.get<string>('BRAPI_TOKEN');
       const { data } = await firstValueFrom(
@@ -23,13 +23,14 @@ export class MarketService {
       );
 
       if (!data.results || data.results.length === 0) {
-        return 0;
+        return null;
       }
 
-      return data.results[0].regularMarketPrice || 0;
+      const price = data.results[0].regularMarketPrice;
+      return typeof price === 'number' ? price : null;
     } catch (error) {
       this.logger.error(`Error fetching price for ${ticker}: ${error.message}`);
-      return 0;
+      return null;
     }
   }
 }
