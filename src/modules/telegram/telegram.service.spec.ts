@@ -32,6 +32,7 @@ describe('TelegramService', () => {
       message: { text },
       from: { id: telegramId },
       reply: jest.fn().mockResolvedValue({} as any),
+      replyWithMarkdown: jest.fn().mockResolvedValue({} as any),
     }) as unknown as Context;
 
   beforeEach(async () => {
@@ -71,13 +72,13 @@ describe('TelegramService', () => {
       await service.onListarCommand(ctx);
 
       expect(mockExpensesService.listExpenses).toHaveBeenCalled();
-      expect(ctx.reply).toHaveBeenCalledWith(
+      expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
         expect.stringContaining('Relatório de Gastos'),
       );
-      expect(ctx.reply).toHaveBeenCalledWith(
+      expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
         expect.stringContaining('Alimentação: R$ 500'),
       );
-      expect(ctx.reply).toHaveBeenCalledWith(
+      expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
         expect.stringContaining('Total: R$ 1500.5'),
       );
     });
@@ -121,14 +122,14 @@ describe('TelegramService', () => {
       await service.onListarCommand(ctx);
 
       expect(mockInvestmentsService.listUserInvestments).toHaveBeenCalledWith(12345n);
-      expect(ctx.reply).toHaveBeenCalledWith(
+      expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
         expect.stringContaining('Carteira de Investimentos'),
       );
-      expect(ctx.reply).toHaveBeenCalledWith(
+      expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
         expect.stringContaining('PETR4'),
       );
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('Lucro Total: R$ 150'),
+      expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
+        expect.stringContaining('Lucro Total: +R$ 150'),
       );
     });
 
@@ -152,7 +153,7 @@ describe('TelegramService', () => {
   
         await service.onListarCommand(ctx);
   
-        expect(ctx.reply).toHaveBeenCalledWith(
+        expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
           expect.stringContaining('Preço indisponível'),
         );
       });
