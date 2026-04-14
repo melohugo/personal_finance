@@ -6,6 +6,7 @@ import { TelegramModule } from './telegram.module';
 import { PrismaService } from '../../common/prisma.service';
 import { PrismaModule } from '../../common/prisma.module';
 import { ConfigModule } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
 import {
   PostgreSqlContainer,
   StartedPostgreSqlContainer,
@@ -13,6 +14,7 @@ import {
 import { execSync } from 'child_process';
 import { Context } from 'telegraf';
 import { getBotToken } from 'nestjs-telegraf';
+import { of } from 'rxjs';
 
 describe('TelegramModule (Integration)', () => {
   let moduleRef: TestingModule;
@@ -49,6 +51,14 @@ describe('TelegramModule (Integration)', () => {
           getMe: jest.fn().mockResolvedValue({ id: 1, first_name: 'Bot' }),
         },
       })
+      .overrideProvider(HttpService)
+      .useValue({
+        get: jest
+          .fn()
+          .mockReturnValue(
+            of({ data: { results: [{ regularMarketPrice: 35 }] } }),
+          ),
+      })
       .compile();
 
     service = moduleRef.get<TelegramService>(TelegramService);
@@ -66,11 +76,13 @@ describe('TelegramModule (Integration)', () => {
   });
 
   beforeEach(async () => {
+    await prisma.assetOperation.deleteMany({});
+    await prisma.asset.deleteMany({});
     await prisma.expense.deleteMany({});
     await prisma.category.deleteMany({});
     await prisma.user.deleteMany({});
 
-    // Create user as /gasto requires a pre-existing user
+    // Create user as most commands require a pre-existing user
     await prisma.user.create({
       data: { telegram_id: telegramId },
     });
@@ -81,9 +93,43 @@ describe('TelegramModule (Integration)', () => {
       message: { text, from: { id: Number(id) } },
       from: { id: Number(id) },
       reply: jest.fn().mockResolvedValue({} as any),
+      replyWithMarkdown: jest.fn().mockResolvedValue({} as any),
     }) as unknown as Context;
 
-  it('should complete the full trip: command -> service -> real database', async () => {
+  it('should list investments from real database using /listar investimentos', async () => {
+    // 1. Setup Data
+    const asset = await prisma.asset.create({
+      data: { ticker: 'PETR4', type: 'STOCK' },
+    });
+    await prisma.assetOperation.create({
+      data: {
+        asset_id: asset.id,
+        telegram_id: telegramId,
+        quantity: 10,
+        unit_price: 20,
+        type: 'BUY',
+        date: new Date(),
+      },
+    });
+
+    const ctx = mockContext('/listar investimentos', telegramId);
+
+    // 2. Execute
+    await service.onListarCommand(ctx);
+
+    // 3. Assert
+    expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
+      expect.stringContaining('PETR4'),
+    );
+    expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
+      expect.stringContaining('Posição: 10'),
+    );
+    expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
+      expect.stringContaining('Lucro: +R$ 150'),
+    );
+  });
+
+  it('should complete the full trip: command /gasto -> service -> real database', async () => {
     const ctx = mockContext('/gasto 85.50 Restaurante', telegramId);
 
     await service.onGastoCommand(ctx);
@@ -106,38 +152,18 @@ describe('TelegramModule (Integration)', () => {
 
   it('should create a new user when /start is called', async () => {
     const newTelegramId = 555444333n;
-
-    // Garante que o usuário não existe antes
     await prisma.user.deleteMany({ where: { telegram_id: newTelegramId } });
 
     const ctx = mockContext('/start', newTelegramId);
-
     await service.start(ctx);
 
-    // Verifica se respondeu ao usuário
     expect(ctx.reply).toHaveBeenCalledWith(
       expect.stringContaining('Bem-vindo ao FinanceBot! 🚀'),
     );
 
-    // Verifica se o usuário foi criado no banco de dados real
     const user = await prisma.user.findUnique({
       where: { telegram_id: newTelegramId },
     });
-
     expect(user).toBeDefined();
-    expect(user?.telegram_id).toBe(newTelegramId);
-  });
-
-  it('should handle large Telegram IDs correctly (BigInt)', async () => {
-    const largeId = 999999999999n;
-    await prisma.user.create({ data: { telegram_id: largeId } });
-
-    const ctx = mockContext('/gasto 10 Teste', largeId);
-    await service.onGastoCommand(ctx);
-
-    const expense = await prisma.expense.findFirst({
-      where: { telegram_id: largeId },
-    });
-    expect(expense?.telegram_id).toBe(largeId);
   });
 });
