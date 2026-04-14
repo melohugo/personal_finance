@@ -136,8 +136,18 @@ describe('ExpensesService (Integration)', () => {
 
     await prisma.expense.createMany({
       data: [
-        { amount: 100, date: new Date(2023, 0, 15), telegram_id: telegramId, category_id: cat.id },
-        { amount: 200, date: new Date(2023, 1, 15), telegram_id: telegramId, category_id: cat.id },
+        {
+          amount: 100,
+          date: new Date(2023, 0, 15),
+          telegram_id: telegramId,
+          category_id: cat.id,
+        },
+        {
+          amount: 200,
+          date: new Date(2023, 1, 15),
+          telegram_id: telegramId,
+          category_id: cat.id,
+        },
       ],
     });
 
@@ -150,7 +160,7 @@ describe('ExpensesService (Integration)', () => {
     });
 
     expect(result.months).toHaveLength(2);
-    const jan = result.months.find(m => m.month === 0);
+    const jan = result.months.find((m) => m.month === 0);
     expect(jan?.total).toBe(100);
   });
 
@@ -158,20 +168,39 @@ describe('ExpensesService (Integration)', () => {
     const foodName = 'Alimentação';
     const gymName = 'Academia';
 
-    const c1 = await prisma.category.create({ data: { name: foodName, telegram_id: telegramId } });
-    const c2 = await prisma.category.create({ data: { name: gymName, telegram_id: telegramId } });
+    const c1 = await prisma.category.create({
+      data: { name: foodName, telegram_id: telegramId },
+    });
+    const c2 = await prisma.category.create({
+      data: { name: gymName, telegram_id: telegramId },
+    });
 
     // Janeiro: Alimentação 100, Academia 100 (Total 200)
     await prisma.expense.createMany({
       data: [
-        { amount: 100, date: new Date(2024, 0, 10), telegram_id: telegramId, category_id: c1.id },
-        { amount: 100, date: new Date(2024, 0, 20), telegram_id: telegramId, category_id: c2.id },
+        {
+          amount: 100,
+          date: new Date(2024, 0, 10),
+          telegram_id: telegramId,
+          category_id: c1.id,
+        },
+        {
+          amount: 100,
+          date: new Date(2024, 0, 20),
+          telegram_id: telegramId,
+          category_id: c2.id,
+        },
       ],
     });
 
     // Fevereiro: Alimentação 150 (Total 150)
     await prisma.expense.create({
-      data: { amount: 150, date: new Date(2024, 1, 10), telegram_id: telegramId, category_id: c1.id },
+      data: {
+        amount: 150,
+        date: new Date(2024, 1, 10),
+        telegram_id: telegramId,
+        category_id: c1.id,
+      },
     });
 
     const result = await service.listExpenses({
@@ -182,8 +211,8 @@ describe('ExpensesService (Integration)', () => {
       },
     });
 
-    const jan = result.months.find(m => m.month === 0);
-    const fev = result.months.find(m => m.month === 1);
+    const jan = result.months.find((m) => m.month === 0);
+    const fev = result.months.find((m) => m.month === 1);
 
     expect(jan?.total).toBe(200);
     expect(fev?.total).toBe(150);
@@ -192,7 +221,7 @@ describe('ExpensesService (Integration)', () => {
     expect(fev?.diffTotal).toBe(-25);
 
     // Variação Alimentação fev vs jan: (150 - 100) / 100 = 0.5 (50%)
-    const foodFev = fev?.byCategory.find(c => c.name === foodName);
+    const foodFev = fev?.byCategory.find((c) => c.name === foodName);
     expect(foodFev?.diffPrevMonth).toBe(50);
   });
 

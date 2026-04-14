@@ -6,7 +6,6 @@ import { of } from 'rxjs';
 
 describe('MarketService', () => {
   let service: MarketService;
-  let config: ConfigService;
 
   const mockHttpService = {
     get: jest.fn(),
@@ -14,8 +13,8 @@ describe('MarketService', () => {
 
   const mockConfigService = {
     get: jest.fn((key: string) => {
-        if (key === 'BRAPI_TOKEN') return 'fake-token';
-        return null;
+      if (key === 'BRAPI_TOKEN') return 'fake-token';
+      return null;
     }),
   };
 
@@ -29,7 +28,6 @@ describe('MarketService', () => {
     }).compile();
 
     service = module.get<MarketService>(MarketService);
-    config = module.get<ConfigService>(ConfigService);
   });
 
   it('should be defined', () => {
@@ -58,23 +56,23 @@ describe('MarketService', () => {
       expect(mockHttpService.get).toHaveBeenCalledWith(
         expect.stringContaining(`/quote/${ticker}`),
         expect.objectContaining({
-          params: expect.objectContaining({ token: 'fake-token' }),
-        })
+          params: { token: 'fake-token' },
+        }),
       );
     });
 
     it('should return null if ticker results are empty', async () => {
-        mockHttpService.get.mockReturnValue(of({ data: { results: [] } }));
-        const price = await service.getAssetPrice('INVALID');
-        expect(price).toBeNull();
+      mockHttpService.get.mockReturnValue(of({ data: { results: [] } }));
+      const price = await service.getAssetPrice('INVALID');
+      expect(price).toBeNull();
     });
 
     it('should return null if an error occurs', async () => {
-        mockHttpService.get.mockImplementation(() => {
-            throw new Error('API Error');
-        });
-        const price = await service.getAssetPrice('PETR4');
-        expect(price).toBeNull();
+      mockHttpService.get.mockImplementation(() => {
+        throw new Error('API Error');
+      });
+      const price = await service.getAssetPrice('PETR4');
+      expect(price).toBeNull();
     });
   });
 });

@@ -21,7 +21,6 @@ describe('TelegramModule (Integration)', () => {
   let service: TelegramService;
   let prisma: PrismaService;
   let container: StartedPostgreSqlContainer;
-  let httpService: HttpService;
 
   const telegramId = 123456789n;
 
@@ -54,13 +53,16 @@ describe('TelegramModule (Integration)', () => {
       })
       .overrideProvider(HttpService)
       .useValue({
-        get: jest.fn().mockReturnValue(of({ data: { results: [{ regularMarketPrice: 35 }] } })),
+        get: jest
+          .fn()
+          .mockReturnValue(
+            of({ data: { results: [{ regularMarketPrice: 35 }] } }),
+          ),
       })
       .compile();
 
     service = moduleRef.get<TelegramService>(TelegramService);
     prisma = moduleRef.get<PrismaService>(PrismaService);
-    httpService = moduleRef.get<HttpService>(HttpService);
     await prisma.$connect();
   }, 60000);
 
@@ -96,16 +98,18 @@ describe('TelegramModule (Integration)', () => {
 
   it('should list investments from real database using /listar investimentos', async () => {
     // 1. Setup Data
-    const asset = await prisma.asset.create({ data: { ticker: 'PETR4', type: 'STOCK' } });
+    const asset = await prisma.asset.create({
+      data: { ticker: 'PETR4', type: 'STOCK' },
+    });
     await prisma.assetOperation.create({
-        data: {
-            asset_id: asset.id,
-            telegram_id: telegramId,
-            quantity: 10,
-            unit_price: 20,
-            type: 'BUY',
-            date: new Date()
-        }
+      data: {
+        asset_id: asset.id,
+        telegram_id: telegramId,
+        quantity: 10,
+        unit_price: 20,
+        type: 'BUY',
+        date: new Date(),
+      },
     });
 
     const ctx = mockContext('/listar investimentos', telegramId);
@@ -115,13 +119,13 @@ describe('TelegramModule (Integration)', () => {
 
     // 3. Assert
     expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
-        expect.stringContaining('PETR4'),
+      expect.stringContaining('PETR4'),
     );
     expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
-        expect.stringContaining('Posição: 10'),
+      expect.stringContaining('Posição: 10'),
     );
     expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
-        expect.stringContaining('Lucro: +R$ 150'),
+      expect.stringContaining('Lucro: +R$ 150'),
     );
   });
 

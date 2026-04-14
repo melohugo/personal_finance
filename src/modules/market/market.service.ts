@@ -3,6 +3,15 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 
+interface BrapiResult {
+  symbol: string;
+  regularMarketPrice: number;
+}
+
+interface BrapiResponse {
+  results: BrapiResult[];
+}
+
 @Injectable()
 export class MarketService {
   private readonly logger = new Logger(MarketService.name);
@@ -17,7 +26,7 @@ export class MarketService {
     try {
       const token = this.configService.get<string>('BRAPI_TOKEN');
       const { data } = await firstValueFrom(
-        this.httpService.get(`${this.baseUrl}/quote/${ticker}`, {
+        this.httpService.get<BrapiResponse>(`${this.baseUrl}/quote/${ticker}`, {
           params: { token },
         }),
       );
@@ -28,8 +37,10 @@ export class MarketService {
 
       const price = data.results[0].regularMarketPrice;
       return typeof price === 'number' ? price : null;
-    } catch (error) {
-      this.logger.error(`Error fetching price for ${ticker}: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error fetching price for ${ticker}: ${errorMessage}`);
       return null;
     }
   }

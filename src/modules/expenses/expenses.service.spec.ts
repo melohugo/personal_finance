@@ -145,18 +145,36 @@ describe('ExpensesService', () => {
       expect(result.months).toHaveLength(1);
       expect(result.months[0].total).toBe(150);
       expect(result.months[0].byCategory).toHaveLength(2);
-      const food = result.months[0].byCategory.find(c => c.name === 'Alimentação');
+      const food = result.months[0].byCategory.find(
+        (c) => c.name === 'Alimentação',
+      );
       expect(food?.amount).toBe(100);
     });
 
     it('should calculate percentages comparing with previous month', async () => {
       const expenses = [
         // Janeiro
-        { amount: 200, date: new Date(2024, 0, 10), category: { name: 'Alimentação' } },
-        { amount: 100, date: new Date(2024, 0, 15), category: { name: 'Transporte' } },
+        {
+          amount: 200,
+          date: new Date(2024, 0, 10),
+          category: { name: 'Alimentação' },
+        },
+        {
+          amount: 100,
+          date: new Date(2024, 0, 15),
+          category: { name: 'Transporte' },
+        },
         // Fevereiro
-        { amount: 300, date: new Date(2024, 1, 10), category: { name: 'Alimentação' } },
-        { amount: 50, date: new Date(2024, 1, 15), category: { name: 'Transporte' } },
+        {
+          amount: 300,
+          date: new Date(2024, 1, 10),
+          category: { name: 'Alimentação' },
+        },
+        {
+          amount: 50,
+          date: new Date(2024, 1, 15),
+          category: { name: 'Transporte' },
+        },
       ];
 
       // @ts-expect-error - mock prisma

@@ -31,18 +31,30 @@ export interface ListarCommandResult {
 }
 
 const MONTHS_MAP: Record<string, number> = {
-  jan: 0, janeiro: 0,
-  fev: 1, fevereiro: 1,
-  mar: 2, março: 2,
-  abr: 3, abril: 3,
-  mai: 4, maio: 4,
-  jun: 5, junho: 5,
-  jul: 6, julho: 6,
-  ago: 7, agosto: 7,
-  set: 8, setembro: 8,
-  out: 9, outubro: 9,
-  nov: 10, novembro: 10,
-  dez: 11, dezembro: 11,
+  jan: 0,
+  janeiro: 0,
+  fev: 1,
+  fevereiro: 1,
+  mar: 2,
+  março: 2,
+  abr: 3,
+  abril: 3,
+  mai: 4,
+  maio: 4,
+  jun: 5,
+  junho: 5,
+  jul: 6,
+  julho: 6,
+  ago: 7,
+  agosto: 7,
+  set: 8,
+  setembro: 8,
+  out: 9,
+  outubro: 9,
+  nov: 10,
+  novembro: 10,
+  dez: 11,
+  dezembro: 11,
 };
 
 function parseDate(dateStr: string): Date {
@@ -95,20 +107,44 @@ export function parseListarCommand(args: string): ListarCommandResult {
   if (dateArgs.length === 0) {
     // Mês atual
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const end = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
     return { type, range: { start, end } };
   }
 
   if (dateArgs.length === 1) {
     const start = parseDate(dateArgs[0]);
-    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
+    const end = new Date(
+      start.getFullYear(),
+      start.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
     return { type, range: { start, end } };
   }
 
   // Intervalo
   const start = parseDate(dateArgs[0]);
   const endLimit = parseDate(dateArgs[1]);
-  const end = new Date(endLimit.getFullYear(), endLimit.getMonth() + 1, 0, 23, 59, 59, 999);
+  const end = new Date(
+    endLimit.getFullYear(),
+    endLimit.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999,
+  );
 
   return { type, range: { start, end } };
 }

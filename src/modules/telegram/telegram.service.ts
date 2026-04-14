@@ -76,7 +76,10 @@ export class TelegramService {
 
         let message = '📊 *Relatório de Gastos*\n\n';
         for (const month of report.months) {
-          const monthName = new Date(month.year, month.month).toLocaleString('pt-BR', { month: 'long' });
+          const monthName = new Date(month.year, month.month).toLocaleString(
+            'pt-BR',
+            { month: 'long' },
+          );
           message += `*${monthName}/${month.year}*\n`;
           for (const cat of month.byCategory) {
             message += `• ${cat.name}: R$ ${cat.amount.toFixed(2)}`;
@@ -95,24 +98,26 @@ export class TelegramService {
         }
 
         if (report.months.length > 1) {
-            message += `*Total Acumulado: R$ ${report.total.toFixed(2)}*`;
+          message += `*Total Acumulado: R$ ${report.total.toFixed(2)}*`;
         }
 
         await ctx.replyWithMarkdown(message);
       } else if (parsed.type === 'categorias') {
-        const categories = await this.expensesService.listCategories(telegramId);
+        const categories =
+          await this.expensesService.listCategories(telegramId);
         const list = categories.map((c) => `• ${c.name}`).join('\n');
         await ctx.reply(`Categorias registradas:\n${list}`);
       } else if (parsed.type === 'investimentos') {
-        const result = await this.investmentsService.listUserInvestments(telegramId);
-        
+        const result =
+          await this.investmentsService.listUserInvestments(telegramId);
+
         let message = '💰 *Carteira de Investimentos*\n\n';
-        
+
         for (const asset of result.assets) {
           message += `*${asset.ticker}*\n`;
           message += `Posição: ${asset.position}\n`;
           message += `PM: R$ ${asset.pm.toFixed(2)}\n`;
-          
+
           if (asset.currentPrice !== null) {
             message += `Preço Atual: R$ ${asset.currentPrice.toFixed(2)}\n`;
             const sign = asset.profit !== null && asset.profit >= 0 ? '+' : '';

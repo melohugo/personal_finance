@@ -32,12 +32,15 @@ export class InvestmentsService {
       orderBy: { date: 'asc' },
     });
 
-    const assetData: Record<string, { 
-      ticker: string; 
-      qty: number; 
-      totalCost: number; 
-      totalQtyBought: number; 
-    }> = {};
+    const assetData: Record<
+      string,
+      {
+        ticker: string;
+        qty: number;
+        totalCost: number;
+        totalQtyBought: number;
+      }
+    > = {};
 
     for (const op of operations) {
       const ticker = op.asset.ticker;
@@ -73,10 +76,12 @@ export class InvestmentsService {
 
       const pm = data.totalCost / data.totalQtyBought;
       const currentPrice = await this.marketService.getAssetPrice(ticker);
-      
+
       const allocation = currentPrice !== null ? data.qty * currentPrice : null;
-      const profit = currentPrice !== null ? data.qty * (currentPrice - pm) : null;
-      const profitPercentage = currentPrice !== null ? ((currentPrice - pm) / pm) * 100 : null;
+      const profit =
+        currentPrice !== null ? data.qty * (currentPrice - pm) : null;
+      const profitPercentage =
+        currentPrice !== null ? ((currentPrice - pm) / pm) * 100 : null;
 
       assets.push({
         ticker,

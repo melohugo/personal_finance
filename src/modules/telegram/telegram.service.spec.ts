@@ -9,9 +9,6 @@ import { Context } from 'telegraf';
 
 describe('TelegramService', () => {
   let service: TelegramService;
-  let expensesService: ExpensesService;
-  let investmentsService: InvestmentsService;
-  let usersService: UsersService;
 
   const mockExpensesService = {
     createFromTelegram: jest.fn(),
@@ -47,9 +44,6 @@ describe('TelegramService', () => {
     }).compile();
 
     service = module.get<TelegramService>(TelegramService);
-    expensesService = module.get<ExpensesService>(ExpensesService);
-    usersService = module.get<UsersService>(UsersService);
-    investmentsService = module.get<InvestmentsService>(InvestmentsService);
   });
 
   it('should be defined', () => {
@@ -60,13 +54,18 @@ describe('TelegramService', () => {
     it('should list expenses for current month when "/listar gastos" is called', async () => {
       const ctx = mockContext('/listar gastos');
       mockExpensesService.listExpenses.mockResolvedValue({
-        months: [{
-          month: new Date().getMonth(),
-          year: new Date().getFullYear(),
-          total: 1500.50,
-          byCategory: [{ name: 'Alimentação', amount: 500 }, { name: 'Lazer', amount: 1000 }]
-        }],
-        total: 1500.50
+        months: [
+          {
+            month: new Date().getMonth(),
+            year: new Date().getFullYear(),
+            total: 1500.5,
+            byCategory: [
+              { name: 'Alimentação', amount: 500 },
+              { name: 'Lazer', amount: 1000 },
+            ],
+          },
+        ],
+        total: 1500.5,
       });
 
       await service.onListarCommand(ctx);
@@ -113,15 +112,17 @@ describe('TelegramService', () => {
             allocation: 350,
             profit: 150,
             profitPercentage: 75,
-          }
+          },
         ],
         totalProfit: 150,
-        totalAllocation: 350
+        totalAllocation: 350,
       });
 
       await service.onListarCommand(ctx);
 
-      expect(mockInvestmentsService.listUserInvestments).toHaveBeenCalledWith(12345n);
+      expect(mockInvestmentsService.listUserInvestments).toHaveBeenCalledWith(
+        12345n,
+      );
       expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
         expect.stringContaining('Carteira de Investimentos'),
       );
@@ -134,29 +135,29 @@ describe('TelegramService', () => {
     });
 
     it('should handle investments with unavailable price', async () => {
-        const ctx = mockContext('/listar investimentos');
-        mockInvestmentsService.listUserInvestments.mockResolvedValue({
-          assets: [
-            {
-              ticker: 'VALE3',
-              position: 10,
-              pm: 100,
-              currentPrice: null,
-              allocation: null,
-              profit: null,
-              profitPercentage: null,
-            }
-          ],
-          totalProfit: 0,
-          totalAllocation: 0
-        });
-  
-        await service.onListarCommand(ctx);
-  
-        expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
-          expect.stringContaining('Preço indisponível'),
-        );
+      const ctx = mockContext('/listar investimentos');
+      mockInvestmentsService.listUserInvestments.mockResolvedValue({
+        assets: [
+          {
+            ticker: 'VALE3',
+            position: 10,
+            pm: 100,
+            currentPrice: null,
+            allocation: null,
+            profit: null,
+            profitPercentage: null,
+          },
+        ],
+        totalProfit: 0,
+        totalAllocation: 0,
       });
+
+      await service.onListarCommand(ctx);
+
+      expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
+        expect.stringContaining('Preço indisponível'),
+      );
+    });
 
     it('should reply with error for invalid subcommands', async () => {
       const ctx = mockContext('/listar xpto');

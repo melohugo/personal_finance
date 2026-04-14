@@ -71,12 +71,15 @@ export class ExpensesService {
     });
 
     // Agrupar por Mês/Ano
-    const groupedByMonth: Record<string, {
-      month: number;
-      year: number;
-      total: number;
-      byCategory: Record<string, { name: string; amount: number }>;
-    }> = {};
+    const groupedByMonth: Record<
+      string,
+      {
+        month: number;
+        year: number;
+        total: number;
+        byCategory: Record<string, { name: string; amount: number }>;
+      }
+    > = {};
 
     for (const exp of expenses) {
       const month = exp.date.getMonth();
@@ -110,7 +113,7 @@ export class ExpensesService {
     // Calcular variações
     const resultMonths = sortedMonths.map((current, index) => {
       const prev = sortedMonths[index - 1];
-      
+
       let diffTotal: number | undefined;
       if (prev && prev.total > 0) {
         diffTotal = ((current.total - prev.total) / prev.total) * 100;
@@ -121,7 +124,8 @@ export class ExpensesService {
         if (prev) {
           const prevCat = prev.byCategory[cat.name];
           if (prevCat && prevCat.amount > 0) {
-            diffPrevMonth = ((cat.amount - prevCat.amount) / prevCat.amount) * 100;
+            diffPrevMonth =
+              ((cat.amount - prevCat.amount) / prevCat.amount) * 100;
           }
         }
         return {

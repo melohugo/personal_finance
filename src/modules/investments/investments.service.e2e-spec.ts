@@ -42,11 +42,11 @@ describe('InvestmentsService (Integration)', () => {
       ],
       providers: [InvestmentsService, PrismaService],
     })
-    .overrideProvider(HttpService)
-    .useValue({
+      .overrideProvider(HttpService)
+      .useValue({
         get: jest.fn(),
-    })
-    .compile();
+      })
+      .compile();
 
     service = module.get<InvestmentsService>(InvestmentsService);
     prisma = module.get<PrismaService>(PrismaService);
@@ -82,29 +82,57 @@ describe('InvestmentsService (Integration)', () => {
     // PETR4: Buy 10 @ 20, Buy 10 @ 30, Sell 5 @ 40 => Pos 15, PM 25
     await prisma.assetOperation.createMany({
       data: [
-        { asset_id: petr4.id, telegram_id: telegramId, quantity: 10, unit_price: 20, type: 'BUY', date: new Date('2023-01-01') },
-        { asset_id: petr4.id, telegram_id: telegramId, quantity: 10, unit_price: 30, type: 'BUY', date: new Date('2023-01-02') },
-        { asset_id: petr4.id, telegram_id: telegramId, quantity: 5, unit_price: 40, type: 'SELL', date: new Date('2023-01-03') },
+        {
+          asset_id: petr4.id,
+          telegram_id: telegramId,
+          quantity: 10,
+          unit_price: 20,
+          type: 'BUY',
+          date: new Date('2023-01-01'),
+        },
+        {
+          asset_id: petr4.id,
+          telegram_id: telegramId,
+          quantity: 10,
+          unit_price: 30,
+          type: 'BUY',
+          date: new Date('2023-01-02'),
+        },
+        {
+          asset_id: petr4.id,
+          telegram_id: telegramId,
+          quantity: 5,
+          unit_price: 40,
+          type: 'SELL',
+          date: new Date('2023-01-03'),
+        },
       ],
     });
 
     // VALE3: Buy 10 @ 100 => Pos 10, PM 100
     await prisma.assetOperation.create({
-      data: { asset_id: vale3.id, telegram_id: telegramId, quantity: 10, unit_price: 100, type: 'BUY', date: new Date('2023-01-01') },
+      data: {
+        asset_id: vale3.id,
+        telegram_id: telegramId,
+        quantity: 10,
+        unit_price: 100,
+        type: 'BUY',
+        date: new Date('2023-01-01'),
+      },
     });
 
     // 3. Mock Market API Responses
     (httpService.get as jest.Mock).mockImplementation((url: string) => {
-        let price = 0;
-        if (url.includes('PETR4')) price = 35;
-        if (url.includes('VALE3')) price = 90;
+      let price = 0;
+      if (url.includes('PETR4')) price = 35;
+      if (url.includes('VALE3')) price = 90;
 
-        const response: Partial<AxiosResponse> = {
-            data: {
-                results: [{ regularMarketPrice: price }]
-            }
-        };
-        return of(response);
+      const response: Partial<AxiosResponse> = {
+        data: {
+          results: [{ regularMarketPrice: price }],
+        },
+      };
+      return of(response);
     });
 
     // 4. Execute Service
@@ -116,23 +144,23 @@ describe('InvestmentsService (Integration)', () => {
     // Totals: Profit 50, Allocation 1425
 
     expect(result.assets).toHaveLength(2);
-    
-    const petrResult = result.assets.find(a => a.ticker === 'PETR4');
+
+    const petrResult = result.assets.find((a) => a.ticker === 'PETR4');
     expect(petrResult).toMatchObject({
-        position: 15,
-        pm: 25,
-        currentPrice: 35,
-        profit: 150,
-        allocation: 525
+      position: 15,
+      pm: 25,
+      currentPrice: 35,
+      profit: 150,
+      allocation: 525,
     });
 
-    const valeResult = result.assets.find(a => a.ticker === 'VALE3');
+    const valeResult = result.assets.find((a) => a.ticker === 'VALE3');
     expect(valeResult).toMatchObject({
-        position: 10,
-        pm: 100,
-        currentPrice: 90,
-        profit: -100,
-        allocation: 900
+      position: 10,
+      pm: 100,
+      currentPrice: 90,
+      profit: -100,
+      allocation: 900,
     });
 
     expect(result.totalProfit).toBe(50);
@@ -144,20 +172,36 @@ describe('InvestmentsService (Integration)', () => {
     await prisma.user.create({ data: { telegram_id: otherUser } });
 
     const petr4 = await prisma.asset.create({
-        data: { ticker: 'PETR4', type: 'STOCK' },
+      data: { ticker: 'PETR4', type: 'STOCK' },
     });
 
     // My operations
     await prisma.assetOperation.create({
-        data: { asset_id: petr4.id, telegram_id: telegramId, quantity: 10, unit_price: 20, type: 'BUY', date: new Date() },
+      data: {
+        asset_id: petr4.id,
+        telegram_id: telegramId,
+        quantity: 10,
+        unit_price: 20,
+        type: 'BUY',
+        date: new Date(),
+      },
     });
 
     // Other user's operations
     await prisma.assetOperation.create({
-        data: { asset_id: petr4.id, telegram_id: otherUser, quantity: 50, unit_price: 10, type: 'BUY', date: new Date() },
+      data: {
+        asset_id: petr4.id,
+        telegram_id: otherUser,
+        quantity: 50,
+        unit_price: 10,
+        type: 'BUY',
+        date: new Date(),
+      },
     });
 
-    (httpService.get as jest.Mock).mockReturnValue(of({ data: { results: [{ regularMarketPrice: 25 }] } }));
+    (httpService.get as jest.Mock).mockReturnValue(
+      of({ data: { results: [{ regularMarketPrice: 25 }] } }),
+    );
 
     const result = await service.listUserInvestments(telegramId);
 
