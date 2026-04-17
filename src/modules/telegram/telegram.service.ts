@@ -193,10 +193,11 @@ export class TelegramService {
           Markup.inlineKeyboard(buttons),
         );
       } else if (parsed.type === 'investimentos') {
-        const operations = await this.investmentsService.listIndividualOperations(
-          telegramId,
-          parsed.range!,
-        );
+        const operations =
+          await this.investmentsService.listIndividualOperations(
+            telegramId,
+            parsed.range!,
+          );
 
         if (operations.length === 0) {
           return await ctx.reply('Nenhuma operação encontrada no período.');
@@ -204,7 +205,7 @@ export class TelegramService {
 
         const buttons = operations.map((op) => [
           Markup.button.callback(
-            `🗑️ ${op.type} ${op.asset.ticker} - ${op.quantity} @ R$ ${Number(op.unit_price).toFixed(2)}`,
+            `🗑️ ${op.type} ${op.asset.ticker} - ${Number(op.quantity)} @ R$ ${Number(op.unit_price).toFixed(2)}`,
             `del:inv:${op.id}`,
           ),
         ]);
