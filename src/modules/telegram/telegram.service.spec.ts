@@ -199,7 +199,9 @@ describe('TelegramService', () => {
         'exp-1',
         12345n,
       );
-      expect(ctx.editMessageText).toHaveBeenCalledWith('Excluído com sucesso ✅');
+      expect(ctx.editMessageText).toHaveBeenCalledWith(
+        'Excluído com sucesso ✅',
+      );
     });
 
     it('should handle "canc_del" action by cancelling', async () => {
