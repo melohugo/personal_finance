@@ -34,7 +34,10 @@ export class TelegramService {
         '/gasto <valor> <categoria> - Registra um gasto manual\n' +
         '/listar gastos [mês] [intervalo] - Lista gastos\n' +
         '/listar categorias - Lista categorias registradas\n' +
-        '/listar investimentos - Lista sua carteira de ativos',
+        '/listar investimentos - Lista sua carteira de ativos\n' +
+        '/deletar gastos [mês] - Lista gastos para exclusão\n' +
+        '/deletar categorias - Lista categorias para exclusão\n' +
+        '/deletar investimentos [mês] - Lista operações para exclusão',
     );
   }
 
