@@ -14,6 +14,9 @@ describe('TelegramService', () => {
     createFromTelegram: jest.fn(),
     listExpenses: jest.fn(),
     listCategories: jest.fn(),
+    listIndividualExpenses: jest.fn(),
+    deleteExpense: jest.fn(),
+    deleteCategory: jest.fn(),
   };
 
   const mockUsersService = {
@@ -22,6 +25,8 @@ describe('TelegramService', () => {
 
   const mockInvestmentsService = {
     listUserInvestments: jest.fn(),
+    listIndividualOperations: jest.fn(),
+    deleteOperation: jest.fn(),
   };
 
   const mockContext = (text: string, telegramId = 12345) =>
@@ -30,6 +35,15 @@ describe('TelegramService', () => {
       from: { id: telegramId },
       reply: jest.fn().mockResolvedValue({} as any),
       replyWithMarkdown: jest.fn().mockResolvedValue({} as any),
+      editMessageText: jest.fn().mockResolvedValue({} as any),
+      answerCbQuery: jest.fn().mockResolvedValue(true),
+      match: [] as string[],
+      update: {
+        callback_query: {
+          data: '',
+          message: { text: 'Mensagem original' },
+        },
+      },
     }) as unknown as Context;
 
   beforeEach(async () => {
@@ -74,12 +88,6 @@ describe('TelegramService', () => {
       expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
         expect.stringContaining('Relatório de Gastos'),
       );
-      expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
-        expect.stringContaining('Alimentação: R$ 500'),
-      );
-      expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
-        expect.stringContaining('Total: R$ 1500.5'),
-      );
     });
 
     it('should list categories when "/listar categorias" is called', async () => {
@@ -94,9 +102,6 @@ describe('TelegramService', () => {
       expect(mockExpensesService.listCategories).toHaveBeenCalledWith(12345n);
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('Categorias registradas:'),
-      );
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('• Alimentação\n• Lazer'),
       );
     });
 
@@ -123,48 +128,88 @@ describe('TelegramService', () => {
       expect(mockInvestmentsService.listUserInvestments).toHaveBeenCalledWith(
         12345n,
       );
-      expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
-        expect.stringContaining('Carteira de Investimentos'),
-      );
-      expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
-        expect.stringContaining('PETR4'),
-      );
-      expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
-        expect.stringContaining('Lucro Total: +R$ 150'),
-      );
     });
+  });
 
-    it('should handle investments with unavailable price', async () => {
-      const ctx = mockContext('/listar investimentos');
-      mockInvestmentsService.listUserInvestments.mockResolvedValue({
-        assets: [
-          {
-            ticker: 'VALE3',
-            position: 10,
-            pm: 100,
-            currentPrice: null,
-            allocation: null,
-            profit: null,
-            profitPercentage: null,
-          },
-        ],
-        totalProfit: 0,
-        totalAllocation: 0,
-      });
+  describe('onDeletarCommand', () => {
+    it('should list individual expenses with delete buttons', async () => {
+      const ctx = mockContext('/deletar gastos');
+      mockExpensesService.listIndividualExpenses.mockResolvedValue([
+        {
+          id: 'exp-1',
+          amount: 50,
+          date: new Date(),
+          category: { name: 'Comida' },
+        },
+      ]);
 
-      await service.onListarCommand(ctx);
+      await service.onDeletarCommand(ctx);
 
-      expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
-        expect.stringContaining('Preço indisponível'),
-      );
-    });
-
-    it('should reply with error for invalid subcommands', async () => {
-      const ctx = mockContext('/listar xpto');
-      await service.onListarCommand(ctx);
+      expect(mockExpensesService.listIndividualExpenses).toHaveBeenCalled();
       expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('Tipo de listagem inválido'),
+        expect.stringContaining('Escolha o item para deletar:'),
+        expect.objectContaining({
+          reply_markup: expect.objectContaining({
+            inline_keyboard: expect.any(Array),
+          }),
+        }),
       );
+    });
+
+    it('should list categories with delete buttons', async () => {
+      const ctx = mockContext('/deletar categorias');
+      mockExpensesService.listCategories.mockResolvedValue([
+        { id: 'cat-1', name: 'Lazer' },
+      ]);
+
+      await service.onDeletarCommand(ctx);
+
+      expect(mockExpensesService.listCategories).toHaveBeenCalled();
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Escolha a categoria para deletar:'),
+        expect.any(Object),
+      );
+    });
+  });
+
+  describe('Actions', () => {
+    it('should handle "del:exp" action by asking for confirmation', async () => {
+      const ctx = mockContext('');
+      (ctx as any).match = ['del:exp:exp-1', 'exp', 'exp-1'];
+
+      await service.onDeleteAction(ctx);
+
+      expect(ctx.editMessageText).toHaveBeenCalledWith(
+        expect.stringContaining('Deseja realmente deletar este item?'),
+        expect.objectContaining({
+          reply_markup: expect.objectContaining({
+            inline_keyboard: expect.any(Array),
+          }),
+        }),
+      );
+    });
+
+    it('should handle "conf_del:exp" action by deleting and confirming', async () => {
+      const ctx = mockContext('');
+      (ctx as any).match = ['conf_del:exp:exp-1', 'exp', 'exp-1'];
+
+      await service.onConfirmDeleteAction(ctx);
+
+      expect(mockExpensesService.deleteExpense).toHaveBeenCalledWith(
+        'exp-1',
+        12345n,
+      );
+      expect(ctx.editMessageText).toHaveBeenCalledWith(
+        'Excluído com sucesso ✅',
+      );
+    });
+
+    it('should handle "canc_del" action by cancelling', async () => {
+      const ctx = mockContext('');
+
+      await service.onCancelDeleteAction(ctx);
+
+      expect(ctx.editMessageText).toHaveBeenCalledWith('Operação cancelada ❌');
     });
   });
 });

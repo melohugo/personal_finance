@@ -10,6 +10,7 @@ describe('InvestmentsService', () => {
   const mockPrismaService = {
     assetOperation: {
       findMany: jest.fn(),
+      delete: jest.fn(),
     },
   };
 
@@ -27,6 +28,7 @@ describe('InvestmentsService', () => {
     }).compile();
 
     service = module.get<InvestmentsService>(InvestmentsService);
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -127,7 +129,7 @@ describe('InvestmentsService', () => {
       ];
 
       mockPrismaService.assetOperation.findMany.mockResolvedValue(operations);
-      mockMarketService.getAssetPrice.mockResolvedValue(null); // API falhou ou não encontrou
+      mockMarketService.getAssetPrice.mockResolvedValue(null);
 
       const result = await service.listUserInvestments(telegramId);
 
@@ -172,17 +174,66 @@ describe('InvestmentsService', () => {
 
       const result = await service.listUserInvestments(telegramId);
 
-      // Explicação:
-      // 1. Compra 10 @ 20 (PM=20, Qtd=10)
-      // 2. Vende 10 @ 40 (Qtd=0) -> PM deve resetar.
-      // 3. Compra 5 @ 30 (PM=30, Qtd=5) -> Se não resetar, o PM antigo (20) poluiria o novo.
-
       expect(result.assets).toHaveLength(1);
       expect(result.assets[0]).toMatchObject({
         ticker: 'PETR4',
         position: 5,
         pm: 30,
-        profit: 25, // 5 * (35 - 30)
+        profit: 25,
+      });
+    });
+  });
+
+  describe('listIndividualOperations', () => {
+    const telegramId = 123456789n;
+
+    it('should return a list of operations for the given period', async () => {
+      const operations = [
+        {
+          id: 'op-1',
+          asset: { ticker: 'PETR4' },
+          quantity: new Prisma.Decimal(10),
+          unit_price: new Prisma.Decimal(30),
+          type: 'BUY',
+          date: new Date(2024, 0, 10),
+        },
+      ];
+
+      mockPrismaService.assetOperation.findMany.mockResolvedValue(operations);
+
+      const result = await service.listIndividualOperations(telegramId, {
+        start: new Date(2024, 0, 1),
+        end: new Date(2024, 0, 31),
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('op-1');
+      expect(mockPrismaService.assetOperation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            telegram_id: telegramId,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('deleteOperation', () => {
+    const telegramId = 123456789n;
+    const operationId = 'op-123';
+
+    it('should delete the operation if it belongs to the user', async () => {
+      mockPrismaService.assetOperation.delete.mockResolvedValue({
+        id: operationId,
+      });
+
+      await service.deleteOperation(operationId, telegramId);
+
+      expect(mockPrismaService.assetOperation.delete).toHaveBeenCalledWith({
+        where: {
+          id: operationId,
+          telegram_id: telegramId,
+        },
       });
     });
   });

@@ -8,9 +8,11 @@ const mockPrisma = {
   expense: {
     create: jest.fn(),
     findMany: jest.fn(),
+    delete: jest.fn(),
   },
   category: {
     findMany: jest.fn(),
+    delete: jest.fn(),
   },
 };
 
@@ -103,8 +105,7 @@ describe('ExpensesService', () => {
     const telegramId = 123456789n;
 
     it('should return empty list when no expenses found', async () => {
-      // @ts-expect-error - mock prisma
-      mockPrisma.expense.findMany = jest.fn().mockResolvedValue([]);
+      mockPrisma.expense.findMany.mockResolvedValue([]);
 
       const result = await service.listExpenses({
         telegramId,
@@ -131,8 +132,7 @@ describe('ExpensesService', () => {
         },
       ];
 
-      // @ts-expect-error - mock prisma
-      mockPrisma.expense.findMany = jest.fn().mockResolvedValue(expenses);
+      mockPrisma.expense.findMany.mockResolvedValue(expenses);
 
       const result = await service.listExpenses({
         telegramId,
@@ -177,8 +177,7 @@ describe('ExpensesService', () => {
         },
       ];
 
-      // @ts-expect-error - mock prisma
-      mockPrisma.expense.findMany = jest.fn().mockResolvedValue(expenses);
+      mockPrisma.expense.findMany.mockResolvedValue(expenses);
 
       const result = await service.listExpenses({
         telegramId,
@@ -216,8 +215,7 @@ describe('ExpensesService', () => {
         { id: '2', name: 'Alimentação', telegram_id: telegramId },
       ];
 
-      // @ts-expect-error - mock prisma
-      mockPrisma.category.findMany = jest.fn().mockResolvedValue(categories);
+      mockPrisma.category.findMany.mockResolvedValue(categories);
 
       const result = await service.listCategories(telegramId);
 
@@ -226,6 +224,70 @@ describe('ExpensesService', () => {
       expect(mockPrisma.category.findMany).toHaveBeenCalledWith({
         where: { telegram_id: telegramId },
         orderBy: { name: 'asc' },
+      });
+    });
+  });
+
+  describe('listIndividualExpenses', () => {
+    const telegramId = 123456789n;
+
+    it('should return a flat list of expenses', async () => {
+      const expenses = [
+        {
+          id: 'exp-1',
+          amount: 100,
+          date: new Date(2024, 0, 10),
+          category: { name: 'Alimentação' },
+        },
+      ];
+
+      mockPrisma.expense.findMany.mockResolvedValue(expenses);
+
+      const result = await service.listIndividualExpenses({
+        telegramId,
+        range: {
+          start: new Date(2024, 0, 1),
+          end: new Date(2024, 0, 31),
+        },
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('exp-1');
+    });
+  });
+
+  describe('deleteExpense', () => {
+    const telegramId = 123456789n;
+    const expenseId = 'exp-123';
+
+    it('should delete the expense if it belongs to the user', async () => {
+      mockPrisma.expense.delete.mockResolvedValue({ id: expenseId });
+
+      await service.deleteExpense(expenseId, telegramId);
+
+      expect(mockPrisma.expense.delete).toHaveBeenCalledWith({
+        where: {
+          id: expenseId,
+          telegram_id: telegramId,
+        },
+      });
+    });
+  });
+
+  describe('deleteCategory', () => {
+    const telegramId = 123456789n;
+    const categoryId = 'cat-123';
+
+    it('should delete the category if it belongs to the user', async () => {
+      mockPrisma.category.delete.mockResolvedValue({ id: categoryId });
+
+      await service.deleteCategory(categoryId, telegramId);
+
+      expect(mockPrisma.category.delete).toHaveBeenCalledWith({
+        where: {
+          id: categoryId,
+          telegram_id: telegramId,
+        },
       });
     });
   });

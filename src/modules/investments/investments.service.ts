@@ -103,4 +103,34 @@ export class InvestmentsService {
       totalAllocation,
     };
   }
+
+  async listIndividualOperations(
+    telegramId: bigint,
+    range: { start: Date; end: Date },
+  ) {
+    return await this.prisma.assetOperation.findMany({
+      where: {
+        telegram_id: telegramId,
+        date: {
+          gte: range.start,
+          lte: range.end,
+        },
+      },
+      include: {
+        asset: true,
+      },
+      orderBy: {
+        date: 'desc',
+      },
+    });
+  }
+
+  async deleteOperation(id: string, telegramId: bigint) {
+    return await this.prisma.assetOperation.delete({
+      where: {
+        id,
+        telegram_id: telegramId,
+      },
+    });
+  }
 }

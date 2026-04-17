@@ -1,6 +1,10 @@
-import { Update, Start, Help, On, Ctx, Command } from 'nestjs-telegraf';
-import { Context } from 'telegraf';
-import { parseGastoCommand, parseListarCommand } from './telegram-parser.utils';
+import { Update, Start, Help, On, Ctx, Command, Action } from 'nestjs-telegraf';
+import { Context, Markup } from 'telegraf';
+import {
+  parseGastoCommand,
+  parseListarCommand,
+  parseDeletarCommand,
+} from './telegram-parser.utils';
 import { ExpensesService } from '../expenses/expenses.service';
 import { UsersService } from '../users/users.service';
 import { InvestmentsService } from '../investments/investments.service';
@@ -30,7 +34,10 @@ export class TelegramService {
         '/gasto <valor> <categoria> - Registra um gasto manual\n' +
         '/listar gastos [mês] [intervalo] - Lista gastos\n' +
         '/listar categorias - Lista categorias registradas\n' +
-        '/listar investimentos - Lista sua carteira de ativos',
+        '/listar investimentos - Lista sua carteira de ativos\n' +
+        '/deletar gastos [mês] - Lista gastos para exclusão\n' +
+        '/deletar categorias - Lista categorias para exclusão\n' +
+        '/deletar investimentos [mês] - Lista operações para exclusão',
     );
   }
 
@@ -137,6 +144,133 @@ export class TelegramService {
     } catch (error) {
       await this.handleError(ctx, error, 'listar dados');
     }
+  }
+
+  @Command('deletar')
+  async onDeletarCommand(@Ctx() ctx: Context) {
+    try {
+      if (!ctx.message || !('text' in ctx.message)) return;
+
+      const args = ctx.message.text.replace(/^\/deletar\s*/, '');
+      const telegramId = BigInt(ctx.from?.id || 0);
+      const parsed = parseDeletarCommand(args);
+
+      if (parsed.type === 'gastos') {
+        const expenses = await this.expensesService.listIndividualExpenses({
+          telegramId,
+          range: parsed.range!,
+        });
+
+        if (expenses.length === 0) {
+          return await ctx.reply('Nenhum gasto encontrado no período.');
+        }
+
+        const buttons = expenses.map((e) => [
+          Markup.button.callback(
+            `🗑️ R$ ${Number(e.amount).toFixed(2)} - ${e.category.name} (${e.date.toLocaleDateString('pt-BR')})`,
+            `del:exp:${e.id}`,
+          ),
+        ]);
+
+        await ctx.reply(
+          'Escolha o item para deletar:',
+          Markup.inlineKeyboard(buttons),
+        );
+      } else if (parsed.type === 'categorias') {
+        const categories =
+          await this.expensesService.listCategories(telegramId);
+
+        if (categories.length === 0) {
+          return await ctx.reply('Nenhuma categoria encontrada.');
+        }
+
+        const buttons = categories.map((c) => [
+          Markup.button.callback(`🗑️ ${c.name}`, `del:cat:${c.id}`),
+        ]);
+
+        await ctx.reply(
+          'Escolha a categoria para deletar:',
+          Markup.inlineKeyboard(buttons),
+        );
+      } else if (parsed.type === 'investimentos') {
+        const operations =
+          await this.investmentsService.listIndividualOperations(
+            telegramId,
+            parsed.range!,
+          );
+
+        if (operations.length === 0) {
+          return await ctx.reply('Nenhuma operação encontrada no período.');
+        }
+
+        const buttons = operations.map((op) => [
+          Markup.button.callback(
+            `🗑️ ${op.type} ${op.asset.ticker} - ${Number(op.quantity)} @ R$ ${Number(op.unit_price).toFixed(2)}`,
+            `del:inv:${op.id}`,
+          ),
+        ]);
+
+        await ctx.reply(
+          'Escolha a operação para deletar:',
+          Markup.inlineKeyboard(buttons),
+        );
+      }
+    } catch (error) {
+      await this.handleError(ctx, error, 'deletar dados');
+    }
+  }
+
+  @Action(/^del:(exp|cat|inv):(.+)$/)
+  async onDeleteAction(@Ctx() ctx: Context) {
+    const match = (ctx as any).match;
+    const type = match[1];
+    const id = match[2];
+
+    const originalText = (ctx.update as any).callback_query.message.text;
+
+    await ctx.editMessageText(
+      `⚠️ *Deseja realmente deletar este item?*\n\nID: ${id}\nOriginal: ${originalText}`,
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [
+            Markup.button.callback('Sim ✅', `conf_del:${type}:${id}`),
+            Markup.button.callback('Não ❌', 'canc_del'),
+          ],
+        ]),
+      },
+    );
+    await ctx.answerCbQuery();
+  }
+
+  @Action(/^conf_del:(exp|cat|inv):(.+)$/)
+  async onConfirmDeleteAction(@Ctx() ctx: Context) {
+    const match = (ctx as any).match;
+    const type = match[1];
+    const id = match[2];
+    const telegramId = BigInt(ctx.from?.id || 0);
+
+    try {
+      if (type === 'exp') {
+        await this.expensesService.deleteExpense(id, telegramId);
+      } else if (type === 'cat') {
+        await this.expensesService.deleteCategory(id, telegramId);
+      } else if (type === 'inv') {
+        await this.investmentsService.deleteOperation(id, telegramId);
+      }
+
+      await ctx.editMessageText('Excluído com sucesso ✅');
+    } catch (error) {
+      console.error('Delete action error:', error);
+      await ctx.editMessageText('❌ Erro ao excluir o item. Tente novamente.');
+    }
+    await ctx.answerCbQuery();
+  }
+
+  @Action('canc_del')
+  async onCancelDeleteAction(@Ctx() ctx: Context) {
+    await ctx.editMessageText('Operação cancelada ❌');
+    await ctx.answerCbQuery();
   }
 
   @On('text')
