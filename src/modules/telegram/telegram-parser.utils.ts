@@ -30,7 +30,10 @@ export interface ListarCommandResult {
   };
 }
 
+export type DeletarCommandResult = ListarCommandResult;
+
 const MONTHS_MAP: Record<string, number> = {
+  // ... mantendo o conteúdo anterior do MONTHS_MAP e parseDate ...
   jan: 0,
   janeiro: 0,
   fev: 1,
@@ -139,6 +142,52 @@ export function parseListarCommand(args: string): ListarCommandResult {
   const end = new Date(
     endLimit.getFullYear(),
     endLimit.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999,
+  );
+
+  return { type, range: { start, end } };
+}
+
+export function parseDeletarCommand(args: string): DeletarCommandResult {
+  const parts = args.trim().toLowerCase().split(/\s+/);
+  const type = parts[0] as ListarType;
+
+  if (!['gastos', 'categorias', 'investimentos'].includes(type)) {
+    throw new Error(
+      'Tipo de exclusão inválido. Use: gastos, categorias ou investimentos.',
+    );
+  }
+
+  if (type === 'categorias') {
+    return { type };
+  }
+
+  // Para gastos e investimentos, processar data (apenas 1 mês por vez para deletar)
+  const now = new Date();
+  const dateArgs = parts.slice(1);
+
+  if (dateArgs.length === 0) {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+    return { type, range: { start, end } };
+  }
+
+  const start = parseDate(dateArgs[0]);
+  const end = new Date(
+    start.getFullYear(),
+    start.getMonth() + 1,
     0,
     23,
     59,
