@@ -39,6 +39,7 @@ describe('TelegramService', () => {
       session: {},
       reply: jest.fn().mockResolvedValue({} as any),
       replyWithMarkdown: jest.fn().mockResolvedValue({} as any),
+<<<<<<< HEAD
       editMessageText: jest.fn().mockResolvedValue({} as any),
       answerCbQuery: jest.fn().mockResolvedValue(true),
       callbackQuery: { data: '' },
@@ -49,6 +50,10 @@ describe('TelegramService', () => {
           message: { text: 'Mensagem original' },
         },
       },
+=======
+      answerCbQuery: jest.fn().mockResolvedValue(true),
+      callbackQuery: { data: '' },
+>>>>>>> c3bc1af (test: adiciona testes para fluxos de callback e sessão no TelegramService)
     }) as unknown as Context;
 
   beforeEach(async () => {
@@ -170,13 +175,21 @@ describe('TelegramService', () => {
     });
   });
 
+<<<<<<< HEAD
   describe('Actions', () => {
+=======
+  describe('onEditActionHandlers', () => {
+>>>>>>> c3bc1af (test: adiciona testes para fluxos de callback e sessão no TelegramService)
     it('should handle edit expense click by setting session and asking field', async () => {
       const ctx = mockContext('');
       (ctx.callbackQuery as any).data = 'edit_exp_123';
       (ctx as any).session = {};
 
+<<<<<<< HEAD
       // @ts-expect-error - testing internal handler
+=======
+      // @ts-expect-error - testing private/internal handler
+>>>>>>> c3bc1af (test: adiciona testes para fluxos de callback e sessão no TelegramService)
       await service.onEditExpense(ctx);
 
       expect((ctx as any).session.editId).toBe('123');
@@ -185,6 +198,7 @@ describe('TelegramService', () => {
         expect.stringContaining('O que deseja alterar neste gasto?'),
         expect.any(Object),
       );
+<<<<<<< HEAD
     });
 
     it('should handle "del:exp" action by asking for confirmation', async () => {
@@ -219,6 +233,22 @@ describe('TelegramService', () => {
       );
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('Gasto atualizado com sucesso!'),
+=======
+      expect(ctx.answerCbQuery).toHaveBeenCalled();
+    });
+
+    it('should handle field selection by asking for new value', async () => {
+      const ctx = mockContext('');
+      (ctx.callbackQuery as any).data = 'edit_field_amount';
+      (ctx as any).session = { editType: 'expense', editId: '123' };
+
+      // @ts-expect-error - testing internal handler
+      await service.onEditField(ctx);
+
+      expect((ctx as any).session.editField).toBe('amount');
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Envie o novo valor'),
+>>>>>>> c3bc1af (test: adiciona testes para fluxos de callback e sessão no TelegramService)
       );
     });
   });
