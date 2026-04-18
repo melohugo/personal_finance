@@ -263,7 +263,7 @@ describe('ExpensesService', () => {
     const expenseId = 'exp-123';
 
     it('should update an expense if it belongs to the user', async () => {
-      mockPrisma.expense.update.mockResolvedValue({ id: expenseId });
+      mockPrisma.expense.update = jest.fn().mockResolvedValue({ id: expenseId });
 
       await service.updateExpense(telegramId, expenseId, {
         amount: 150.0,
@@ -280,7 +280,7 @@ describe('ExpensesService', () => {
     });
 
     it('should update expense category using connectOrCreate', async () => {
-      mockPrisma.expense.update.mockResolvedValue({ id: expenseId });
+      mockPrisma.expense.update = jest.fn().mockResolvedValue({ id: expenseId });
 
       await service.updateExpense(telegramId, expenseId, {
         categoryName: 'Novo Nome',
@@ -331,7 +331,7 @@ describe('ExpensesService', () => {
     const categoryId = 'cat-123';
 
     it('should rename a category', async () => {
-      mockPrisma.category.update.mockResolvedValue({ id: categoryId });
+      mockPrisma.category.update = jest.fn().mockResolvedValue({ id: categoryId });
 
       await service.updateCategory(telegramId, categoryId, 'Supermercado');
 
