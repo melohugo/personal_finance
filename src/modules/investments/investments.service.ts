@@ -18,12 +18,33 @@ export interface UserInvestments {
   totalAllocation: number;
 }
 
+export interface UpdateOperationDto {
+  quantity?: number;
+  unit_price?: number;
+  type?: 'BUY' | 'SELL';
+  date?: Date;
+}
+
 @Injectable()
 export class InvestmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly marketService: MarketService,
   ) {}
+
+  async updateOperation(
+    telegramId: bigint,
+    operationId: string,
+    dto: UpdateOperationDto,
+  ) {
+    return await this.prisma.assetOperation.update({
+      where: {
+        id: operationId,
+        telegram_id: telegramId,
+      },
+      data: dto as any,
+    });
+  }
 
   async listUserInvestments(telegramId: bigint): Promise<UserInvestments> {
     const operations = await this.prisma.assetOperation.findMany({
