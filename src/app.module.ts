@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TelegrafModule } from 'nestjs-telegraf';
+import { session } from 'telegraf';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ExpensesModule } from './modules/expenses/expenses.module';
@@ -17,6 +18,7 @@ import { PrismaModule } from './common/prisma.module';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         token: configService.get<string>('TELEGRAM_BOT_TOKEN') || '',
+        middlewares: [session()],
       }),
     }),
     PrismaModule,
