@@ -237,4 +237,48 @@ describe('InvestmentsService', () => {
       });
     });
   });
+
+  describe('updateOperation', () => {
+    const telegramId = 123456789n;
+    const operationId = 'op-123';
+
+    it('should update an asset operation', async () => {
+      mockPrismaService.assetOperation.update = jest
+        .fn()
+        .mockResolvedValue({ id: operationId });
+
+      await service.updateOperation(telegramId, operationId, {
+        quantity: 15,
+        unit_price: 25.5,
+      });
+
+      expect(mockPrismaService.assetOperation.update).toHaveBeenCalledWith({
+        where: { id: operationId, telegram_id: telegramId },
+        data: {
+          quantity: 15,
+          unit_price: 25.5,
+        },
+      });
+    });
+
+    it('should update operation date and type', async () => {
+      mockPrismaService.assetOperation.update = jest
+        .fn()
+        .mockResolvedValue({ id: operationId });
+      const newDate = new Date();
+
+      await service.updateOperation(telegramId, operationId, {
+        date: newDate,
+        type: 'SELL',
+      });
+
+      expect(mockPrismaService.assetOperation.update).toHaveBeenCalledWith({
+        where: { id: operationId, telegram_id: telegramId },
+        data: {
+          date: newDate,
+          type: 'SELL',
+        },
+      });
+    });
+  });
 });
