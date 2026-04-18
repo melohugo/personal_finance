@@ -14,13 +14,9 @@ describe('TelegramService', () => {
     createFromTelegram: jest.fn(),
     listExpenses: jest.fn(),
     listCategories: jest.fn(),
-<<<<<<< HEAD
     listIndividualExpenses: jest.fn(),
     deleteExpense: jest.fn(),
     deleteCategory: jest.fn(),
-=======
-    listRawExpenses: jest.fn(),
->>>>>>> e069b41 (feat: finaliza fluxo de edição no TelegramService com processamento de texto)
     updateExpense: jest.fn(),
     updateCategory: jest.fn(),
   };
@@ -31,12 +27,8 @@ describe('TelegramService', () => {
 
   const mockInvestmentsService = {
     listUserInvestments: jest.fn(),
-<<<<<<< HEAD
     listIndividualOperations: jest.fn(),
     deleteOperation: jest.fn(),
-=======
-    listRawOperations: jest.fn(),
->>>>>>> e069b41 (feat: finaliza fluxo de edição no TelegramService com processamento de texto)
     updateOperation: jest.fn(),
   };
 
@@ -47,7 +39,6 @@ describe('TelegramService', () => {
       session: {},
       reply: jest.fn().mockResolvedValue({} as any),
       replyWithMarkdown: jest.fn().mockResolvedValue({} as any),
-<<<<<<< HEAD
       editMessageText: jest.fn().mockResolvedValue({} as any),
       answerCbQuery: jest.fn().mockResolvedValue(true),
       callbackQuery: { data: '' },
@@ -58,10 +49,6 @@ describe('TelegramService', () => {
           message: { text: 'Mensagem original' },
         },
       },
-=======
-      answerCbQuery: jest.fn().mockResolvedValue(true),
-      callbackQuery: { data: '' },
->>>>>>> c3bc1af (test: adiciona testes para fluxos de callback e sessão no TelegramService)
     }) as unknown as Context;
 
   beforeEach(async () => {
@@ -183,21 +170,13 @@ describe('TelegramService', () => {
     });
   });
 
-<<<<<<< HEAD
   describe('Actions', () => {
-=======
-  describe('onEditActionHandlers', () => {
->>>>>>> c3bc1af (test: adiciona testes para fluxos de callback e sessão no TelegramService)
     it('should handle edit expense click by setting session and asking field', async () => {
       const ctx = mockContext('');
       (ctx.callbackQuery as any).data = 'edit_exp_123';
       (ctx as any).session = {};
 
-<<<<<<< HEAD
       // @ts-expect-error - testing internal handler
-=======
-      // @ts-expect-error - testing private/internal handler
->>>>>>> c3bc1af (test: adiciona testes para fluxos de callback e sessão no TelegramService)
       await service.onEditExpense(ctx);
 
       expect((ctx as any).session.editId).toBe('123');
@@ -206,7 +185,6 @@ describe('TelegramService', () => {
         expect.stringContaining('O que deseja alterar neste gasto?'),
         expect.any(Object),
       );
-<<<<<<< HEAD
     });
 
     it('should handle "del:exp" action by asking for confirmation', async () => {
@@ -241,66 +219,6 @@ describe('TelegramService', () => {
       );
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('Gasto atualizado com sucesso!'),
-=======
-      expect(ctx.answerCbQuery).toHaveBeenCalled();
-    });
-
-    it('should handle field selection by asking for new value', async () => {
-      const ctx = mockContext('');
-      (ctx.callbackQuery as any).data = 'edit_field_amount';
-      (ctx as any).session = { editType: 'expense', editId: '123' };
-
-      // @ts-expect-error - testing internal handler
-      await service.onEditField(ctx);
-
-      expect((ctx as any).session.editField).toBe('amount');
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('Envie o novo valor'),
->>>>>>> c3bc1af (test: adiciona testes para fluxos de callback e sessão no TelegramService)
-      );
-    });
-  });
-
-  describe('onMessage (Processing Edits)', () => {
-    it('should update expense amount when session has edit info', async () => {
-      const ctx = mockContext('150.50');
-      (ctx as any).session = {
-        editType: 'expense',
-        editId: 'exp-123',
-        editField: 'amount',
-      };
-      mockExpensesService.updateExpense.mockResolvedValue({});
-
-      await service.onMessage(ctx);
-
-      expect(mockExpensesService.updateExpense).toHaveBeenCalledWith(
-        12345n,
-        'exp-123',
-        { amount: 150.5 },
-      );
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('Gasto atualizado com sucesso!'),
-      );
-      expect((ctx as any).session).toEqual({}); // Session cleared
-    });
-
-    it('should update category name when session has edit info', async () => {
-      const ctx = mockContext('Novo Nome');
-      (ctx as any).session = {
-        editType: 'category',
-        editId: 'cat-123',
-      };
-      mockExpensesService.updateCategory.mockResolvedValue({});
-
-      await service.onMessage(ctx);
-
-      expect(mockExpensesService.updateCategory).toHaveBeenCalledWith(
-        12345n,
-        'cat-123',
-        'Novo Nome',
-      );
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('Categoria atualizada com sucesso!'),
       );
     });
   });

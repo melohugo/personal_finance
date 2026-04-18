@@ -55,26 +55,6 @@ export class InvestmentsService {
     });
   }
 
-  async listRawOperations(dto: ListOperationsDto) {
-    const { telegramId, range } = dto;
-
-    return await this.prisma.assetOperation.findMany({
-      where: {
-        telegram_id: telegramId,
-        date: {
-          gte: range.start,
-          lte: range.end,
-        },
-      },
-      include: {
-        asset: true,
-      },
-      orderBy: {
-        date: 'desc',
-      },
-    });
-  }
-
   async listUserInvestments(telegramId: bigint): Promise<UserInvestments> {
     const operations = await this.prisma.assetOperation.findMany({
       where: { telegram_id: telegramId },

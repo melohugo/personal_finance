@@ -238,7 +238,7 @@ describe('InvestmentsService', () => {
     });
   });
 
-  describe('listRawOperations', () => {
+  describe('listIndividualOperations', () => {
     const telegramId = 123456789n;
 
     it('should return individual operations for the given range', async () => {
@@ -254,10 +254,10 @@ describe('InvestmentsService', () => {
         .fn()
         .mockResolvedValue(operations);
 
-      const result = await service.listRawOperations({
+      const result = await service.listIndividualOperations(
         telegramId,
-        range: { start: new Date(), end: new Date() },
-      });
+        { start: new Date(), end: new Date() },
+      );
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('1');
