@@ -92,8 +92,11 @@ describe('TelegramModule (Integration)', () => {
     ({
       message: { text, from: { id: Number(id) } },
       from: { id: Number(id) },
+      session: {},
       reply: jest.fn().mockResolvedValue({} as any),
       replyWithMarkdown: jest.fn().mockResolvedValue({} as any),
+      answerCbQuery: jest.fn().mockResolvedValue(true),
+      callbackQuery: { data: '' },
     }) as unknown as Context;
 
   it('should list investments from real database using /listar investimentos', async () => {
@@ -165,5 +168,89 @@ describe('TelegramModule (Integration)', () => {
       where: { telegram_id: newTelegramId },
     });
     expect(user).toBeDefined();
+  });
+
+  it('should list and update an expense via session and action flow', async () => {
+    // 1. Setup: Create an expense
+    const category = await prisma.category.create({
+      data: { name: 'Comida', telegram_id: telegramId },
+    });
+    const expense = await prisma.expense.create({
+      data: {
+        amount: 50.0,
+        category_id: category.id,
+        telegram_id: telegramId,
+        date: new Date(),
+      },
+    });
+
+    // 2. Execute /editar gastos
+    const ctx = mockContext('/editar gastos', telegramId);
+    await service.onEditarCommand(ctx);
+
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('Escolha um gasto para editar'),
+      expect.any(Object),
+    );
+
+    // 3. Simulate click on the expense button
+    const editCtx = mockContext('', telegramId);
+    (editCtx.callbackQuery as any).data = `edit_exp_${expense.id}`;
+    (editCtx as any).session = {}; // Persistent session simulation
+
+    await service.onEditExpense(editCtx as any);
+    expect(editCtx.session).toMatchObject({
+      editId: expense.id,
+      editType: 'expense',
+    });
+
+    // 4. Simulate field selection (amount)
+    const fieldCtx = mockContext('', telegramId);
+    (fieldCtx.callbackQuery as any).data = 'edit_field_amount';
+    (fieldCtx as any).session = editCtx.session;
+
+    await service.onEditField(fieldCtx as any);
+    expect(fieldCtx.session.editField).toBe('amount');
+
+    // 5. Simulate sending new amount text
+    const textCtx = mockContext('120.50', telegramId);
+    (textCtx as any).session = fieldCtx.session;
+
+    await service.onMessage(textCtx as any);
+
+    // 6. Verify database
+    const updated = await prisma.expense.findUnique({
+      where: { id: expense.id },
+    });
+    expect(Number(updated?.amount)).toBe(120.5);
+    expect(textCtx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('Gasto atualizado com sucesso!'),
+    );
+  });
+
+  it('should rename a category through integration flow', async () => {
+    // 1. Setup
+    const category = await prisma.category.create({
+      data: { name: 'Antiga', telegram_id: telegramId },
+    });
+
+    // 2. Click category
+    const editCtx = mockContext('', telegramId);
+    (editCtx.callbackQuery as any).data = `edit_cat_${category.id}`;
+    (editCtx as any).session = {};
+
+    await service.onEditCategory(editCtx as any);
+
+    // 3. Send new name
+    const textCtx = mockContext('Nova Categoria', telegramId);
+    (textCtx as any).session = editCtx.session;
+
+    await service.onMessage(textCtx as any);
+
+    // 4. Verify
+    const updated = await prisma.category.findUnique({
+      where: { id: category.id },
+    });
+    expect(updated?.name).toBe('Nova Categoria');
   });
 });
