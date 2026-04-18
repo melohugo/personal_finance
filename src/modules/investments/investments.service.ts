@@ -25,6 +25,14 @@ export interface UpdateOperationDto {
   date?: Date;
 }
 
+export interface ListOperationsDto {
+  telegramId: bigint;
+  range: {
+    start: Date;
+    end: Date;
+  };
+}
+
 @Injectable()
 export class InvestmentsService {
   constructor(
@@ -43,6 +51,26 @@ export class InvestmentsService {
         telegram_id: telegramId,
       },
       data: dto as any,
+    });
+  }
+
+  async listRawOperations(dto: ListOperationsDto) {
+    const { telegramId, range } = dto;
+
+    return await this.prisma.assetOperation.findMany({
+      where: {
+        telegram_id: telegramId,
+        date: {
+          gte: range.start,
+          lte: range.end,
+        },
+      },
+      include: {
+        asset: true,
+      },
+      orderBy: {
+        date: 'desc',
+      },
     });
   }
 
