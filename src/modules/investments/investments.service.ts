@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { MarketService } from '../market/market.service';
+import { Prisma } from '@prisma/client';
 
 export interface InvestmentAsset {
   ticker: string;
@@ -50,7 +51,7 @@ export class InvestmentsService {
         id: operationId,
         telegram_id: telegramId,
       },
-      data: dto as any,
+      data: dto as Prisma.AssetOperationUpdateInput,
     });
   }
 

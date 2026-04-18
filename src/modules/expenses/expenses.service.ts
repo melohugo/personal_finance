@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
+import { Prisma } from '@prisma/client';
 
 export interface CreateExpenseFromTelegramDto {
   telegramId: bigint;
@@ -65,7 +66,7 @@ export class ExpensesService {
   ) {
     const { amount, categoryName, date, description } = dto;
 
-    const data: any = {};
+    const data: Prisma.ExpenseUpdateInput = {};
     if (amount !== undefined) {
       if (amount <= 0) throw new Error('Amount must be greater than zero');
       data.amount = amount;
