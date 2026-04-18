@@ -1,12 +1,4 @@
-import {
-  Update,
-  Start,
-  Help,
-  On,
-  Ctx,
-  Command,
-  Action,
-} from 'nestjs-telegraf';
+import { Update, Start, Help, On, Ctx, Command, Action } from 'nestjs-telegraf';
 import { Context, Markup } from 'telegraf';
 import {
   parseGastoCommand,
@@ -23,6 +15,7 @@ import {
   InvestmentsService,
   UpdateOperationDto,
 } from '../investments/investments.service';
+<<<<<<< HEAD
 
 interface SessionData {
   editType?: 'expense' | 'category' | 'investment';
@@ -33,6 +26,8 @@ interface SessionData {
 interface MyContext extends Context {
   session: SessionData;
 }
+=======
+>>>>>>> fd04497 (refactor: elimina uso de 'any' no TelegramService e melhora segurança de tipos)
 
 interface SessionData {
   editType?: 'expense' | 'category' | 'investment';
@@ -351,7 +346,8 @@ export class TelegramService {
 =======
   @Action(/^edit_exp_(.+)$/)
   async onEditExpense(@Ctx() ctx: MyContext) {
-    const expenseId = (ctx.callbackQuery as any).data.replace('edit_exp_', '');
+    if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
+    const expenseId = ctx.callbackQuery.data.replace('edit_exp_', '');
     ctx.session.editType = 'expense';
     ctx.session.editId = expenseId;
 
@@ -370,7 +366,8 @@ export class TelegramService {
 
   @Action(/^edit_cat_(.+)$/)
   async onEditCategory(@Ctx() ctx: MyContext) {
-    const categoryId = (ctx.callbackQuery as any).data.replace('edit_cat_', '');
+    if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
+    const categoryId = ctx.callbackQuery.data.replace('edit_cat_', '');
     ctx.session.editType = 'category';
     ctx.session.editId = categoryId;
 
@@ -380,7 +377,8 @@ export class TelegramService {
 
   @Action(/^edit_inv_(.+)$/)
   async onEditInvestment(@Ctx() ctx: MyContext) {
-    const operationId = (ctx.callbackQuery as any).data.replace('edit_inv_', '');
+    if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
+    const operationId = ctx.callbackQuery.data.replace('edit_inv_', '');
     ctx.session.editType = 'investment';
     ctx.session.editId = operationId;
 
@@ -398,7 +396,8 @@ export class TelegramService {
 
   @Action(/^edit_field_(.+)$/)
   async onEditField(@Ctx() ctx: MyContext) {
-    const field = (ctx.callbackQuery as any).data.replace('edit_field_', '');
+    if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
+    const field = ctx.callbackQuery.data.replace('edit_field_', '');
     ctx.session.editField = field;
 
     const fieldNames: Record<string, string> = {
@@ -554,10 +553,14 @@ export class TelegramService {
 
     if (editType === 'expense') {
 <<<<<<< HEAD
+<<<<<<< HEAD
       const updateData: UpdateExpenseDto = {};
 =======
       const updateData: any = {};
 >>>>>>> e069b41 (feat: finaliza fluxo de edição no TelegramService com processamento de texto)
+=======
+      const updateData: UpdateExpenseDto = {};
+>>>>>>> fd04497 (refactor: elimina uso de 'any' no TelegramService e melhora segurança de tipos)
       if (editField === 'amount') {
         const amount = parseFloat(text.replace(',', '.'));
         if (isNaN(amount)) throw new Error('Valor inválido.');
@@ -575,10 +578,14 @@ export class TelegramService {
       await ctx.reply('Categoria atualizada com sucesso! ✅');
     } else if (editType === 'investment') {
 <<<<<<< HEAD
+<<<<<<< HEAD
       const updateData: UpdateOperationDto = {};
 =======
       const updateData: any = {};
 >>>>>>> e069b41 (feat: finaliza fluxo de edição no TelegramService com processamento de texto)
+=======
+      const updateData: UpdateOperationDto = {};
+>>>>>>> fd04497 (refactor: elimina uso de 'any' no TelegramService e melhora segurança de tipos)
       if (editField === 'quantity') {
         const qty = parseFloat(text.replace(',', '.'));
         if (isNaN(qty)) throw new Error('Quantidade inválida.');
