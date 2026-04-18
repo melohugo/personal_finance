@@ -14,9 +14,13 @@ describe('TelegramService', () => {
     createFromTelegram: jest.fn(),
     listExpenses: jest.fn(),
     listCategories: jest.fn(),
+<<<<<<< HEAD
     listIndividualExpenses: jest.fn(),
     deleteExpense: jest.fn(),
     deleteCategory: jest.fn(),
+=======
+    listRawExpenses: jest.fn(),
+>>>>>>> e069b41 (feat: finaliza fluxo de edição no TelegramService com processamento de texto)
     updateExpense: jest.fn(),
     updateCategory: jest.fn(),
   };
@@ -27,8 +31,12 @@ describe('TelegramService', () => {
 
   const mockInvestmentsService = {
     listUserInvestments: jest.fn(),
+<<<<<<< HEAD
     listIndividualOperations: jest.fn(),
     deleteOperation: jest.fn(),
+=======
+    listRawOperations: jest.fn(),
+>>>>>>> e069b41 (feat: finaliza fluxo de edição no TelegramService com processamento de texto)
     updateOperation: jest.fn(),
   };
 

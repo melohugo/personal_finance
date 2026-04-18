@@ -414,6 +414,7 @@ export class TelegramService {
   }
 
   @On('text')
+<<<<<<< HEAD
   async onMessage(@Ctx() ctx: Context) {
     await ctx.reply(
       'Ainda estou aprendendo a processar textos. Tente enviar uma foto ou um comando como /gasto ou /listar.',
@@ -521,6 +522,8 @@ export class TelegramService {
   }
 
   @On('text')
+=======
+>>>>>>> e069b41 (feat: finaliza fluxo de edição no TelegramService com processamento de texto)
   async onMessage(@Ctx() ctx: MyContext) {
     try {
       if (!ctx.message || !('text' in ctx.message)) return;
@@ -550,7 +553,11 @@ export class TelegramService {
     const { editType, editId, editField } = ctx.session;
 
     if (editType === 'expense') {
+<<<<<<< HEAD
       const updateData: UpdateExpenseDto = {};
+=======
+      const updateData: any = {};
+>>>>>>> e069b41 (feat: finaliza fluxo de edição no TelegramService com processamento de texto)
       if (editField === 'amount') {
         const amount = parseFloat(text.replace(',', '.'));
         if (isNaN(amount)) throw new Error('Valor inválido.');
@@ -567,7 +574,11 @@ export class TelegramService {
       await this.expensesService.updateCategory(telegramId, editId!, text);
       await ctx.reply('Categoria atualizada com sucesso! ✅');
     } else if (editType === 'investment') {
+<<<<<<< HEAD
       const updateData: UpdateOperationDto = {};
+=======
+      const updateData: any = {};
+>>>>>>> e069b41 (feat: finaliza fluxo de edição no TelegramService com processamento de texto)
       if (editField === 'quantity') {
         const qty = parseFloat(text.replace(',', '.'));
         if (isNaN(qty)) throw new Error('Quantidade inválida.');
