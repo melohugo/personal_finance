@@ -15,6 +15,13 @@ export interface ListExpensesDto {
   };
 }
 
+export interface UpdateExpenseDto {
+  amount?: number;
+  categoryName?: string;
+  date?: Date;
+  description?: string;
+}
+
 @Injectable()
 export class ExpensesService {
   constructor(private prisma: PrismaService) {}
@@ -47,6 +54,63 @@ export class ExpensesService {
             },
           },
         },
+      },
+    });
+  }
+
+  async updateExpense(
+    telegramId: bigint,
+    expenseId: string,
+    dto: UpdateExpenseDto,
+  ) {
+    const { amount, categoryName, date, description } = dto;
+
+    const data: any = {};
+    if (amount !== undefined) {
+      if (amount <= 0) throw new Error('Amount must be greater than zero');
+      data.amount = amount;
+    }
+    if (date !== undefined) data.date = date;
+    if (description !== undefined) data.description = description;
+
+    if (categoryName !== undefined) {
+      data.category = {
+        connectOrCreate: {
+          where: {
+            name_telegram_id: {
+              name: categoryName,
+              telegram_id: telegramId,
+            },
+          },
+          create: {
+            name: categoryName,
+            telegram_id: telegramId,
+          },
+        },
+      };
+    }
+
+    return await this.prisma.expense.update({
+      where: {
+        id: expenseId,
+        telegram_id: telegramId,
+      },
+      data,
+    });
+  }
+
+  async updateCategory(
+    telegramId: bigint,
+    categoryId: string,
+    newName: string,
+  ) {
+    return await this.prisma.category.update({
+      where: {
+        id: categoryId,
+        telegram_id: telegramId,
+      },
+      data: {
+        name: newName,
       },
     });
   }
