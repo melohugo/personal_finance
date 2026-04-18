@@ -238,6 +238,32 @@ describe('InvestmentsService', () => {
     });
   });
 
+  describe('listRawOperations', () => {
+    const telegramId = 123456789n;
+
+    it('should return individual operations for the given range', async () => {
+      const operations = [
+        {
+          id: '1',
+          asset: { ticker: 'PETR4' },
+          quantity: 10,
+          date: new Date(),
+        },
+      ];
+      mockPrismaService.assetOperation.findMany = jest
+        .fn()
+        .mockResolvedValue(operations);
+
+      const result = await service.listRawOperations({
+        telegramId,
+        range: { start: new Date(), end: new Date() },
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('1');
+    });
+  });
+
   describe('updateOperation', () => {
     const telegramId = 123456789n;
     const operationId = 'op-123';

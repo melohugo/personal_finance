@@ -213,6 +213,26 @@ export class ExpensesService {
     };
   }
 
+  async listRawExpenses(dto: ListExpensesDto) {
+    const { telegramId, range } = dto;
+
+    return await this.prisma.expense.findMany({
+      where: {
+        telegram_id: telegramId,
+        date: {
+          gte: range.start,
+          lte: range.end,
+        },
+      },
+      include: {
+        category: true,
+      },
+      orderBy: {
+        date: 'desc',
+      },
+    });
+  }
+
   async listCategories(telegramId: bigint) {
     return await this.prisma.category.findMany({
       where: { telegram_id: telegramId },
