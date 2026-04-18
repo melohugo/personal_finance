@@ -1,0 +1,21 @@
+services:
+  # Web Service para a API NestJS e Bot do Telegram
+  - type: web
+    name: personal-finance-api
+    env: docker
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    plan: free # Plano gratuito do Render
+    region: ohio # Escolha a região mais próxima do seu banco no Neon
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      # As variáveis abaixo você preencherá manualmente no Dashboard do Render
+      # ou via 'Secret Files'/.env se preferir.
+      - key: DATABASE_URL
+        sync: false # Pegue a Connection String no painel do Neon
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false # Pegue o Token com o @BotFather
