@@ -34,6 +34,16 @@ interface MyContext extends Context {
   session: SessionData;
 }
 
+interface SessionData {
+  editType?: 'expense' | 'category' | 'investment';
+  editId?: string;
+  editField?: string;
+}
+
+interface MyContext extends Context {
+  session: SessionData;
+}
+
 @Update()
 export class TelegramService {
   constructor(
@@ -317,6 +327,7 @@ export class TelegramService {
     }
   }
 
+<<<<<<< HEAD
   @Action(/^del:(exp|cat|inv):(.+)$/)
   async onDeleteAction(@Ctx() ctx: Context) {
     if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
@@ -337,6 +348,76 @@ export class TelegramService {
           ],
         ]),
       },
+=======
+  @Action(/^edit_exp_(.+)$/)
+  async onEditExpense(@Ctx() ctx: MyContext) {
+    const expenseId = (ctx.callbackQuery as any).data.replace('edit_exp_', '');
+    ctx.session.editType = 'expense';
+    ctx.session.editId = expenseId;
+
+    await ctx.reply(
+      'O que deseja alterar neste gasto?',
+      Markup.inlineKeyboard([
+        [
+          Markup.button.callback('Valor', 'edit_field_amount'),
+          Markup.button.callback('Descrição', 'edit_field_description'),
+        ],
+        [Markup.button.callback('Categoria', 'edit_field_category')],
+      ]),
+    );
+    await ctx.answerCbQuery();
+  }
+
+  @Action(/^edit_cat_(.+)$/)
+  async onEditCategory(@Ctx() ctx: MyContext) {
+    const categoryId = (ctx.callbackQuery as any).data.replace('edit_cat_', '');
+    ctx.session.editType = 'category';
+    ctx.session.editId = categoryId;
+
+    await ctx.reply('Envie o novo nome para esta categoria:');
+    await ctx.answerCbQuery();
+  }
+
+  @Action(/^edit_inv_(.+)$/)
+  async onEditInvestment(@Ctx() ctx: MyContext) {
+    const operationId = (ctx.callbackQuery as any).data.replace('edit_inv_', '');
+    ctx.session.editType = 'investment';
+    ctx.session.editId = operationId;
+
+    await ctx.reply(
+      'O que deseja alterar nesta operação?',
+      Markup.inlineKeyboard([
+        [
+          Markup.button.callback('Quantidade', 'edit_field_quantity'),
+          Markup.button.callback('Preço Unitário', 'edit_field_price'),
+        ],
+      ]),
+    );
+    await ctx.answerCbQuery();
+  }
+
+  @Action(/^edit_field_(.+)$/)
+  async onEditField(@Ctx() ctx: MyContext) {
+    const field = (ctx.callbackQuery as any).data.replace('edit_field_', '');
+    ctx.session.editField = field;
+
+    const fieldNames: Record<string, string> = {
+      amount: 'o novo valor',
+      description: 'a nova descrição',
+      category: 'o novo nome da categoria',
+      quantity: 'a nova quantidade',
+      price: 'o novo preço unitário',
+    };
+
+    await ctx.reply(`Envie ${fieldNames[field] || 'o novo valor'}:`);
+    await ctx.answerCbQuery();
+  }
+
+  @On('text')
+  async onMessage(@Ctx() ctx: Context) {
+    await ctx.reply(
+      'Ainda estou aprendendo a processar textos. Tente enviar uma foto ou um comando como /gasto ou /listar.',
+>>>>>>> 765b1e6 (feat: implementa tratadores de ações de clique e sessão no TelegramService)
     );
     await ctx.answerCbQuery();
   }
