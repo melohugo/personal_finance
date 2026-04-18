@@ -9,10 +9,12 @@ const mockPrisma = {
     create: jest.fn(),
     findMany: jest.fn(),
     delete: jest.fn(),
+    update: jest.fn(),
   },
   category: {
     findMany: jest.fn(),
     delete: jest.fn(),
+    update: jest.fn(),
   },
 };
 
@@ -256,6 +258,56 @@ describe('ExpensesService', () => {
     });
   });
 
+  describe('updateExpense', () => {
+    const telegramId = 123456789n;
+    const expenseId = 'exp-123';
+
+    it('should update an expense if it belongs to the user', async () => {
+      mockPrisma.expense.update.mockResolvedValue({ id: expenseId });
+
+      await service.updateExpense(telegramId, expenseId, {
+        amount: 150.0,
+        description: 'Updated description',
+      });
+
+      expect(mockPrisma.expense.update).toHaveBeenCalledWith({
+        where: { id: expenseId, telegram_id: telegramId },
+        data: {
+          amount: 150.0,
+          description: 'Updated description',
+        },
+      });
+    });
+
+    it('should update expense category using connectOrCreate', async () => {
+      mockPrisma.expense.update.mockResolvedValue({ id: expenseId });
+
+      await service.updateExpense(telegramId, expenseId, {
+        categoryName: 'Novo Nome',
+      });
+
+      expect(mockPrisma.expense.update).toHaveBeenCalledWith({
+        where: { id: expenseId, telegram_id: telegramId },
+        data: {
+          category: {
+            connectOrCreate: {
+              where: {
+                name_telegram_id: {
+                  name: 'Novo Nome',
+                  telegram_id: telegramId,
+                },
+              },
+              create: {
+                name: 'Novo Nome',
+                telegram_id: telegramId,
+              },
+            },
+          },
+        },
+      });
+    });
+  });
+
   describe('deleteExpense', () => {
     const telegramId = 123456789n;
     const expenseId = 'exp-123';
@@ -270,6 +322,22 @@ describe('ExpensesService', () => {
           id: expenseId,
           telegram_id: telegramId,
         },
+      });
+    });
+  });
+
+  describe('updateCategory', () => {
+    const telegramId = 123456789n;
+    const categoryId = 'cat-123';
+
+    it('should rename a category', async () => {
+      mockPrisma.category.update.mockResolvedValue({ id: categoryId });
+
+      await service.updateCategory(telegramId, categoryId, 'Supermercado');
+
+      expect(mockPrisma.category.update).toHaveBeenCalledWith({
+        where: { id: categoryId, telegram_id: telegramId },
+        data: { name: 'Supermercado' },
       });
     });
   });
