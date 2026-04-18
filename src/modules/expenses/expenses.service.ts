@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
+import { Prisma } from '@prisma/client';
 
 export interface CreateExpenseFromTelegramDto {
   telegramId: bigint;
@@ -13,6 +14,13 @@ export interface ListExpensesDto {
     start: Date;
     end: Date;
   };
+}
+
+export interface UpdateExpenseDto {
+  amount?: number;
+  categoryName?: string;
+  date?: Date;
+  description?: string;
 }
 
 @Injectable()
@@ -47,6 +55,63 @@ export class ExpensesService {
             },
           },
         },
+      },
+    });
+  }
+
+  async updateExpense(
+    telegramId: bigint,
+    expenseId: string,
+    dto: UpdateExpenseDto,
+  ) {
+    const { amount, categoryName, date, description } = dto;
+
+    const data: Prisma.ExpenseUpdateInput = {};
+    if (amount !== undefined) {
+      if (amount <= 0) throw new Error('Amount must be greater than zero');
+      data.amount = amount;
+    }
+    if (date !== undefined) data.date = date;
+    if (description !== undefined) data.description = description;
+
+    if (categoryName !== undefined) {
+      data.category = {
+        connectOrCreate: {
+          where: {
+            name_telegram_id: {
+              name: categoryName,
+              telegram_id: telegramId,
+            },
+          },
+          create: {
+            name: categoryName,
+            telegram_id: telegramId,
+          },
+        },
+      };
+    }
+
+    return await this.prisma.expense.update({
+      where: {
+        id: expenseId,
+        telegram_id: telegramId,
+      },
+      data,
+    });
+  }
+
+  async updateCategory(
+    telegramId: bigint,
+    categoryId: string,
+    newName: string,
+  ) {
+    return await this.prisma.category.update({
+      where: {
+        id: categoryId,
+        telegram_id: telegramId,
+      },
+      data: {
+        name: newName,
       },
     });
   }

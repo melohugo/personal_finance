@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { MarketService } from '../market/market.service';
+import { Prisma } from '@prisma/client';
 
 export interface InvestmentAsset {
   ticker: string;
@@ -18,12 +19,41 @@ export interface UserInvestments {
   totalAllocation: number;
 }
 
+export interface UpdateOperationDto {
+  quantity?: number;
+  unit_price?: number;
+  type?: 'BUY' | 'SELL';
+  date?: Date;
+}
+
+export interface ListOperationsDto {
+  telegramId: bigint;
+  range: {
+    start: Date;
+    end: Date;
+  };
+}
+
 @Injectable()
 export class InvestmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly marketService: MarketService,
   ) {}
+
+  async updateOperation(
+    telegramId: bigint,
+    operationId: string,
+    dto: UpdateOperationDto,
+  ) {
+    return await this.prisma.assetOperation.update({
+      where: {
+        id: operationId,
+        telegram_id: telegramId,
+      },
+      data: dto as Prisma.AssetOperationUpdateInput,
+    });
+  }
 
   async listUserInvestments(telegramId: bigint): Promise<UserInvestments> {
     const operations = await this.prisma.assetOperation.findMany({

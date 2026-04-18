@@ -2,11 +2,11 @@ import {
   parseGastoCommand,
   parseListarCommand,
   parseDeletarCommand,
+  parseEditarCommand,
 } from './telegram-parser.utils';
 
 describe('TelegramParserUtils', () => {
   describe('parseGastoCommand', () => {
-    // ... mantendo o conteúdo anterior do parseGastoCommand ...
     it('should parse valid command with amount and category', () => {
       const result = parseGastoCommand('50.5 Alimentação');
       expect(result).toEqual({
@@ -54,7 +54,6 @@ describe('TelegramParserUtils', () => {
       const result = parseListarCommand('gastos');
       expect(result.type).toBe('gastos');
       expect(result.range).toBeDefined();
-      // Verificamos se o início é o primeiro dia do mês atual
       const now = new Date();
       expect(result.range?.start.getMonth()).toBe(now.getMonth());
       expect(result.range?.start.getDate()).toBe(1);
@@ -73,22 +72,22 @@ describe('TelegramParserUtils', () => {
     it('should parse "/listar gastos jan" for current year', () => {
       const result = parseListarCommand('gastos jan');
       expect(result.type).toBe('gastos');
-      expect(result.range?.start.getMonth()).toBe(0); // Janeiro
+      expect(result.range?.start.getMonth()).toBe(0);
       expect(result.range?.start.getFullYear()).toBe(currentYear);
     });
 
     it('should parse "/listar gastos 05/23" for specific month and year', () => {
       const result = parseListarCommand('gastos 05/23');
       expect(result.type).toBe('gastos');
-      expect(result.range?.start.getMonth()).toBe(4); // Maio
+      expect(result.range?.start.getMonth()).toBe(4);
       expect(result.range?.start.getFullYear()).toBe(2023);
     });
 
     it('should parse "/listar gastos jan mar" as a range', () => {
       const result = parseListarCommand('gastos jan mar');
       expect(result.type).toBe('gastos');
-      expect(result.range?.start.getMonth()).toBe(0); // Janeiro
-      expect(result.range?.end.getMonth()).toBe(2); // Março (fim do mês será tratado no service)
+      expect(result.range?.start.getMonth()).toBe(0);
+      expect(result.range?.end.getMonth()).toBe(2);
     });
 
     it('should throw error for unknown type', () => {
@@ -143,6 +142,37 @@ describe('TelegramParserUtils', () => {
     it('should throw error for unknown type', () => {
       expect(() => parseDeletarCommand('qualquercoisa')).toThrow(
         'Tipo de exclusão inválido. Use: gastos, categorias ou investimentos.',
+      );
+    });
+  });
+
+  describe('parseEditarCommand', () => {
+    const currentYear = new Date().getFullYear();
+
+    it('should parse "gastos" for current month', () => {
+      const result = parseEditarCommand('gastos');
+      expect(result.type).toBe('gastos');
+      expect(result.range).toBeDefined();
+      const now = new Date();
+      expect(result.range?.start.getMonth()).toBe(now.getMonth());
+    });
+
+    it('should parse "investimentos jan" for current year', () => {
+      const result = parseEditarCommand('investimentos jan');
+      expect(result.type).toBe('investimentos');
+      expect(result.range?.start.getMonth()).toBe(0);
+      expect(result.range?.start.getFullYear()).toBe(currentYear);
+    });
+
+    it('should parse "categorias" without range', () => {
+      const result = parseEditarCommand('categorias');
+      expect(result.type).toBe('categorias');
+      expect(result.range).toBeUndefined();
+    });
+
+    it('should throw error for unknown type', () => {
+      expect(() => parseEditarCommand('inválido')).toThrow(
+        'Tipo de edição inválido. Use: gastos, categorias ou investimentos.',
       );
     });
   });
