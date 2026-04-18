@@ -252,4 +252,48 @@ describe('TelegramService', () => {
       );
     });
   });
+
+  describe('onMessage (Processing Edits)', () => {
+    it('should update expense amount when session has edit info', async () => {
+      const ctx = mockContext('150.50');
+      (ctx as any).session = {
+        editType: 'expense',
+        editId: 'exp-123',
+        editField: 'amount',
+      };
+      mockExpensesService.updateExpense.mockResolvedValue({});
+
+      await service.onMessage(ctx);
+
+      expect(mockExpensesService.updateExpense).toHaveBeenCalledWith(
+        12345n,
+        'exp-123',
+        { amount: 150.5 },
+      );
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Gasto atualizado com sucesso!'),
+      );
+      expect((ctx as any).session).toEqual({}); // Session cleared
+    });
+
+    it('should update category name when session has edit info', async () => {
+      const ctx = mockContext('Novo Nome');
+      (ctx as any).session = {
+        editType: 'category',
+        editId: 'cat-123',
+      };
+      mockExpensesService.updateCategory.mockResolvedValue({});
+
+      await service.onMessage(ctx);
+
+      expect(mockExpensesService.updateCategory).toHaveBeenCalledWith(
+        12345n,
+        'cat-123',
+        'Novo Nome',
+      );
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Categoria atualizada com sucesso!'),
+      );
+    });
+  });
 });
