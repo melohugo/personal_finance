@@ -32,6 +32,7 @@ RUN apk add --no-cache openssl libc6-compat ca-certificates curl && update-ca-ce
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/node_modules ./node_modules
 
 # Ensure production environment
