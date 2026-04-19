@@ -44,4 +44,4 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/ || exit 1
 
 # Start the application, running Prisma migrations before launching the server
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "npx prisma db push && node dist/main"]
