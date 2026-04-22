@@ -109,7 +109,7 @@ describe('ExpensesService', () => {
         service.createFromTelegram({
           telegramId,
           amount: 0,
-          categoryName,
+          categoryName: categoryNameRaw,
         }),
       ).rejects.toThrow('Amount must be greater than zero');
     });
@@ -119,7 +119,7 @@ describe('ExpensesService', () => {
         service.createFromTelegram({
           telegramId,
           amount: -10,
-          categoryName,
+          categoryName: categoryNameRaw,
         }),
       ).rejects.toThrow('Amount must be greater than zero');
     });
