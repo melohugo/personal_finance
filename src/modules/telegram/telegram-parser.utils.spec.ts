@@ -11,8 +11,14 @@ describe('TelegramParserUtils', () => {
       const result = parseGastoCommand('50.5 Alimentação');
       expect(result).toEqual({
         amount: 50.5,
-        categoryName: 'Alimentação',
+        categoryName: 'Alimentacao',
       });
+    });
+
+    it('should normalize category name (accents, casing, spaces)', () => {
+      expect(parseGastoCommand('10 alimentacao').categoryName).toBe('Alimentacao');
+      expect(parseGastoCommand('10 ALIMENTAÇÃO').categoryName).toBe('Alimentacao');
+      expect(parseGastoCommand('10   alimentação  ').categoryName).toBe('Alimentacao');
     });
 
     it('should parse valid command with commas in amount', () => {
@@ -20,6 +26,44 @@ describe('TelegramParserUtils', () => {
       expect(result).toEqual({
         amount: 50.5,
         categoryName: 'Mercado',
+      });
+    });
+
+    it('should parse valid command with amount, category and specific date (DD/MM/YYYY)', () => {
+      const result = parseGastoCommand('50.5 Alimentação 20/04/2026');
+      expect(result).toEqual({
+        amount: 50.5,
+        categoryName: 'Alimentacao',
+        date: new Date(2026, 3, 20),
+      });
+    });
+
+    it('should parse valid command with amount, category and date (DD/MM)', () => {
+      const currentYear = new Date().getFullYear();
+      const result = parseGastoCommand('50.5 Alimentação 20/04');
+      expect(result).toEqual({
+        amount: 50.5,
+        categoryName: 'Alimentacao',
+        date: new Date(currentYear, 3, 20),
+      });
+    });
+
+    it('should parse valid command with amount, category and day only (DD)', () => {
+      const now = new Date();
+      const result = parseGastoCommand('50.5 Alimentação 15');
+      expect(result).toEqual({
+        amount: 50.5,
+        categoryName: 'Alimentacao',
+        date: new Date(now.getFullYear(), now.getMonth(), 15),
+      });
+    });
+
+    it('should handle category names with multiple words and a date', () => {
+      const result = parseGastoCommand('100.0 Super Mercado 20/04/2026');
+      expect(result).toEqual({
+        amount: 100.0,
+        categoryName: 'Super Mercado',
+        date: new Date(2026, 3, 20),
       });
     });
 
