@@ -43,9 +43,10 @@ describe('ExpensesService', () => {
   describe('createFromTelegram', () => {
     const telegramId = 123456789n;
     const amount = 50.5;
-    const categoryName = 'Alimentação';
+    const categoryNameRaw = 'alimentação';
+    const categoryNameNormalized = 'Alimentacao';
 
-    it('should create an expense with connectOrCreate for category', async () => {
+    it('should create an expense with normalized category and current date if none provided', async () => {
       mockPrisma.expense.create.mockResolvedValue({
         id: 'exp-123',
         amount,
@@ -55,23 +56,24 @@ describe('ExpensesService', () => {
       const result = await service.createFromTelegram({
         telegramId,
         amount,
-        categoryName,
+        categoryName: categoryNameRaw,
       });
 
       expect(mockPrisma.expense.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             amount,
+            date: expect.any(Date),
             category: {
               connectOrCreate: {
                 where: {
                   name_telegram_id: {
-                    name: categoryName,
+                    name: categoryNameNormalized,
                     telegram_id: telegramId,
                   },
                 },
                 create: {
-                  name: categoryName,
+                  name: categoryNameNormalized,
                   telegram_id: telegramId,
                 },
               },
@@ -80,6 +82,26 @@ describe('ExpensesService', () => {
         }),
       );
       expect(result).toBeDefined();
+    });
+
+    it('should create an expense with specific date if provided', async () => {
+      const customDate = new Date(2026, 3, 20);
+      mockPrisma.expense.create.mockResolvedValue({ id: 'exp-123' });
+
+      await service.createFromTelegram({
+        telegramId,
+        amount,
+        categoryName: 'Mercado',
+        date: customDate,
+      });
+
+      expect(mockPrisma.expense.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            date: customDate,
+          }),
+        }),
+      );
     });
 
     it('should throw an error if amount is zero', async () => {
