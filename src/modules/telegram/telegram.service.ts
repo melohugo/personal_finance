@@ -74,16 +74,18 @@ export class TelegramService {
 
       const messageText = ctx.message.text;
       const args = messageText.replace(/^\/gasto\s*/, '');
-      const { amount, categoryName } = parseGastoCommand(args);
+      const { amount, categoryName, date } = parseGastoCommand(args);
 
       await this.expensesService.createFromTelegram({
         telegramId: BigInt(ctx.from?.id || 0),
         amount,
         categoryName,
+        date,
       });
 
+      const dateStr = date ? ` em ${date.toLocaleDateString('pt-BR')}` : '';
       await ctx.reply(
-        `Gasto de R$ ${amount} registrado em ${categoryName}! ✅`,
+        `Gasto de R$ ${amount.toFixed(2)} registrado em ${categoryName}${dateStr}! ✅`,
       );
     } catch (error) {
       await this.handleError(ctx, error, 'registrar gasto');
