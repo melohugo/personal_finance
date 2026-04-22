@@ -60,14 +60,15 @@ describe('ExpensesService (Integration)', () => {
     });
   });
 
-  it('should persist expense and category in the database', async () => {
+  it('should persist expense and category in the database with normalization', async () => {
     const amount = 125.75;
-    const categoryName = 'Saúde';
+    const categoryNameRaw = 'Saúde';
+    const categoryNameNormalized = 'Saude';
 
     const result = await service.createFromTelegram({
       telegramId,
       amount,
-      categoryName,
+      categoryName: categoryNameRaw,
     });
 
     expect(result).toBeDefined();
@@ -75,21 +76,41 @@ describe('ExpensesService (Integration)', () => {
 
     const category = await prisma.category.findUnique({
       where: {
-        name_telegram_id: { name: categoryName, telegram_id: telegramId },
+        name_telegram_id: { name: categoryNameNormalized, telegram_id: telegramId },
       },
     });
     expect(category).toBeDefined();
-    expect(category?.name).toBe(categoryName);
+    expect(category?.name).toBe(categoryNameNormalized);
+  });
+
+  it('should persist expense with a custom date', async () => {
+    const amount = 50;
+    const categoryName = 'Mercado';
+    const customDate = new Date(2026, 3, 20);
+
+    const result = await service.createFromTelegram({
+      telegramId,
+      amount,
+      categoryName,
+      date: customDate,
+    });
+
+    const expense = await prisma.expense.findUnique({
+      where: { id: result.id },
+    });
+
+    expect(expense?.date.toISOString()).toBe(customDate.toISOString());
   });
 
   it('should reuse existing category for the same user', async () => {
-    const categoryName = 'Alimentação';
+    const categoryNameRaw = 'Alimentação';
+    const categoryNameNormalized = 'Alimentacao';
 
-    await service.createFromTelegram({ telegramId, amount: 50, categoryName });
-    await service.createFromTelegram({ telegramId, amount: 100, categoryName });
+    await service.createFromTelegram({ telegramId, amount: 50, categoryName: categoryNameRaw });
+    await service.createFromTelegram({ telegramId, amount: 100, categoryName: categoryNameRaw });
 
     const categories = await prisma.category.findMany({
-      where: { telegram_id: telegramId, name: categoryName },
+      where: { telegram_id: telegramId, name: categoryNameNormalized },
     });
 
     expect(categories).toHaveLength(1);
@@ -165,7 +186,7 @@ describe('ExpensesService (Integration)', () => {
   });
 
   it('should calculate percentages comparing with previous month in a range with realistic categories', async () => {
-    const foodName = 'Alimentação';
+    const foodName = 'Alimentacao';
     const gymName = 'Academia';
 
     const c1 = await prisma.category.create({
@@ -221,14 +242,14 @@ describe('ExpensesService (Integration)', () => {
     expect(fev?.diffTotal).toBe(-25);
 
     // Variação Alimentação fev vs jan: (150 - 100) / 100 = 0.5 (50%)
-    const foodFev = fev?.byCategory.find((c) => c.name === foodName);
+    const foodFev = fev?.byCategory.find((c) => c.name === 'Alimentacao');
     expect(foodFev?.diffPrevMonth).toBe(50);
   });
 
-  it('should list all categories for a user', async () => {
+  it('should list all categories for a user normalized', async () => {
     await prisma.category.createMany({
       data: [
-        { name: 'Alimentação', telegram_id: telegramId },
+        { name: 'Alimentacao', telegram_id: telegramId },
         { name: 'Academia', telegram_id: telegramId },
       ],
     });
@@ -237,6 +258,6 @@ describe('ExpensesService (Integration)', () => {
 
     expect(result).toHaveLength(2);
     expect(result[0].name).toBe('Academia');
-    expect(result[1].name).toBe('Alimentação');
+    expect(result[1].name).toBe('Alimentacao');
   });
 });
