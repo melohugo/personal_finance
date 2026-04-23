@@ -1,5 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { session } from 'telegraf';
 
 // Teste focado na lógica de construção das opções do TelegrafModule
@@ -33,15 +32,17 @@ describe('Telegram Configuration Logic', () => {
 
   it('should return Webhook options when BASE_URL is present', () => {
     const options = getTelegrafOptions('https://test-app.render.com');
-    
+
     expect(options.launchOptions).toBeDefined();
     expect(options.launchOptions?.webhook).toBeDefined();
-    expect(options.launchOptions?.webhook?.domain).toBe('https://test-app.render.com');
+    expect(options.launchOptions?.webhook?.domain).toBe(
+      'https://test-app.render.com',
+    );
   });
 
   it('should return undefined launchOptions (Polling) when BASE_URL is absent', () => {
     const options = getTelegrafOptions(undefined);
-    
+
     expect(options.launchOptions).toBeUndefined();
   });
 });
