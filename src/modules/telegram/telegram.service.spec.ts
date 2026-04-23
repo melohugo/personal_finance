@@ -69,6 +69,18 @@ describe('TelegramService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('onStatus', () => {
+    it('should reply with online status and uptime', async () => {
+      const ctx = mockContext('/status');
+
+      await service.onStatus(ctx);
+
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Estou online e operacional!'),
+      );
+    });
+  });
+
   describe('onListarCommand', () => {
     it('should list expenses for current month when "/listar gastos" is called', async () => {
       const ctx = mockContext('/listar gastos');
