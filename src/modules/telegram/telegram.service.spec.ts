@@ -83,6 +83,18 @@ describe('TelegramService', () => {
     });
   });
 
+  describe('onStatus', () => {
+    it('should reply with online status and uptime', async () => {
+      const ctx = mockContext('/status');
+
+      await service.onStatus(ctx);
+
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Estou online e operacional!'),
+      );
+    });
+  });
+
   describe('onGastoCommand', () => {
     it('should register a simple gasto correctly', async () => {
       const ctx = mockContext('/gasto 50.0 Alimentação');
@@ -149,7 +161,9 @@ describe('TelegramService', () => {
 
       await service.onListarCommand(ctx);
 
-      expect(mockInvestmentsService.listUserInvestments).toHaveBeenCalledWith(12345n);
+      expect(mockInvestmentsService.listUserInvestments).toHaveBeenCalledWith(
+        12345n,
+      );
       expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
         expect.stringContaining('Carteira de Investimentos'),
       );
@@ -291,8 +305,13 @@ describe('TelegramService', () => {
 
       await service.onConfirmDeleteAction(ctx);
 
-      expect(mockExpensesService.deleteExpense).toHaveBeenCalledWith('exp-123', 12345n);
-      expect(ctx.editMessageText).toHaveBeenCalledWith('Excluído com sucesso ✅');
+      expect(mockExpensesService.deleteExpense).toHaveBeenCalledWith(
+        'exp-123',
+        12345n,
+      );
+      expect(ctx.editMessageText).toHaveBeenCalledWith(
+        'Excluído com sucesso ✅',
+      );
     });
 
     it('should confirm category deletion', async () => {
@@ -302,7 +321,10 @@ describe('TelegramService', () => {
 
       await service.onConfirmDeleteAction(ctx);
 
-      expect(mockExpensesService.deleteCategory).toHaveBeenCalledWith('cat-123', 12345n);
+      expect(mockExpensesService.deleteCategory).toHaveBeenCalledWith(
+        'cat-123',
+        12345n,
+      );
     });
 
     it('should confirm investment deletion', async () => {
@@ -312,7 +334,10 @@ describe('TelegramService', () => {
 
       await service.onConfirmDeleteAction(ctx);
 
-      expect(mockInvestmentsService.deleteOperation).toHaveBeenCalledWith('inv-123', 12345n);
+      expect(mockInvestmentsService.deleteOperation).toHaveBeenCalledWith(
+        'inv-123',
+        12345n,
+      );
     });
 
     it('should handle cancel deletion', async () => {
@@ -346,37 +371,73 @@ describe('TelegramService', () => {
 
     it('should update expense description', async () => {
       const ctx = mockContext('Nova descrição');
-      (ctx as any).session = { editType: 'expense', editId: 'exp-1', editField: 'description' };
+      (ctx as any).session = {
+        editType: 'expense',
+        editId: 'exp-1',
+        editField: 'description',
+      };
       await service.onMessage(ctx);
-      expect(mockExpensesService.updateExpense).toHaveBeenCalledWith(12345n, 'exp-1', { description: 'Nova descrição' });
+      expect(mockExpensesService.updateExpense).toHaveBeenCalledWith(
+        12345n,
+        'exp-1',
+        { description: 'Nova descrição' },
+      );
     });
 
     it('should update expense category', async () => {
       const ctx = mockContext('Mercado');
-      (ctx as any).session = { editType: 'expense', editId: 'exp-1', editField: 'category' };
+      (ctx as any).session = {
+        editType: 'expense',
+        editId: 'exp-1',
+        editField: 'category',
+      };
       await service.onMessage(ctx);
-      expect(mockExpensesService.updateExpense).toHaveBeenCalledWith(12345n, 'exp-1', { categoryName: 'Mercado' });
+      expect(mockExpensesService.updateExpense).toHaveBeenCalledWith(
+        12345n,
+        'exp-1',
+        { categoryName: 'Mercado' },
+      );
     });
 
     it('should update category name', async () => {
       const ctx = mockContext('Novo Nome');
       (ctx as any).session = { editType: 'category', editId: 'cat-1' };
       await service.onMessage(ctx);
-      expect(mockExpensesService.updateCategory).toHaveBeenCalledWith(12345n, 'cat-1', 'Novo Nome');
+      expect(mockExpensesService.updateCategory).toHaveBeenCalledWith(
+        12345n,
+        'cat-1',
+        'Novo Nome',
+      );
     });
 
     it('should update investment quantity', async () => {
       const ctx = mockContext('10.5');
-      (ctx as any).session = { editType: 'investment', editId: 'inv-1', editField: 'quantity' };
+      (ctx as any).session = {
+        editType: 'investment',
+        editId: 'inv-1',
+        editField: 'quantity',
+      };
       await service.onMessage(ctx);
-      expect(mockInvestmentsService.updateOperation).toHaveBeenCalledWith(12345n, 'inv-1', { quantity: 10.5 });
+      expect(mockInvestmentsService.updateOperation).toHaveBeenCalledWith(
+        12345n,
+        'inv-1',
+        { quantity: 10.5 },
+      );
     });
 
     it('should update investment price', async () => {
       const ctx = mockContext('30,50');
-      (ctx as any).session = { editType: 'investment', editId: 'inv-1', editField: 'price' };
+      (ctx as any).session = {
+        editType: 'investment',
+        editId: 'inv-1',
+        editField: 'price',
+      };
       await service.onMessage(ctx);
-      expect(mockInvestmentsService.updateOperation).toHaveBeenCalledWith(12345n, 'inv-1', { unit_price: 30.5 });
+      expect(mockInvestmentsService.updateOperation).toHaveBeenCalledWith(
+        12345n,
+        'inv-1',
+        { unit_price: 30.5 },
+      );
     });
   });
 });

@@ -254,10 +254,10 @@ describe('InvestmentsService', () => {
         .fn()
         .mockResolvedValue(operations);
 
-      const result = await service.listIndividualOperations(
-        telegramId,
-        { start: new Date(), end: new Date() },
-      );
+      const result = await service.listIndividualOperations(telegramId, {
+        start: new Date(),
+        end: new Date(),
+      });
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('1');

@@ -96,7 +96,6 @@ export class ExpensesService {
       };
     }
 
-
     return await this.prisma.expense.update({
       where: {
         id: expenseId,
