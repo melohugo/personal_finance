@@ -56,12 +56,26 @@ export class TelegramService {
   async help(@Ctx() ctx: Context) {
     await ctx.reply(
       'Comandos disponíveis:\n' +
+        '/status - Verifica se o bot está online\n' +
         '/gasto <valor> <categoria> - Registra um gasto manual\n' +
         '/listar gastos [mês] [intervalo] - Lista gastos\n' +
         '/listar categorias - Lista categorias registradas\n' +
         '/listar investimentos - Lista sua carteira de ativos\n' +
         '/deletar <gastos|categorias|investimentos> [mês] - Exclui registros\n' +
         '/editar <gastos|categorias|investimentos> [mês] - Edita registros',
+    );
+  }
+
+  @Command('status')
+  async onStatus(@Ctx() ctx: Context) {
+    const uptime = process.uptime();
+    const hours = Math.floor(uptime / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+
+    await ctx.reply(
+      `🚀 Estou online e operacional!\n` +
+        `⏱️ Tempo de atividade: ${hours}h ${minutes}m\n` +
+        `📅 Data atual: ${new Date().toLocaleString('pt-BR')}`,
     );
   }
 

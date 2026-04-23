@@ -16,10 +16,23 @@ import { PrismaModule } from './common/prisma.module';
     ConfigModule.forRoot({ isGlobal: true }),
     TelegrafModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        token: configService.get<string>('TELEGRAM_BOT_TOKEN') || '',
-        middlewares: [session()],
-      }),
+      useFactory: (configService: ConfigService) => {
+        const token = configService.get<string>('TELEGRAM_BOT_TOKEN') || '';
+        const baseUrl = configService.get<string>('BASE_URL');
+
+        return {
+          token,
+          middlewares: [session()],
+          launchOptions: baseUrl
+            ? {
+                webhook: {
+                  domain: baseUrl,
+                  hookPath: '/telegraf',
+                },
+              }
+            : undefined,
+        };
+      },
     }),
     PrismaModule,
     ExpensesModule,
