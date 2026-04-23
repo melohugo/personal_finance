@@ -76,7 +76,10 @@ describe('ExpensesService (Integration)', () => {
 
     const category = await prisma.category.findUnique({
       where: {
-        name_telegram_id: { name: categoryNameNormalized, telegram_id: telegramId },
+        name_telegram_id: {
+          name: categoryNameNormalized,
+          telegram_id: telegramId,
+        },
       },
     });
     expect(category).toBeDefined();
@@ -106,8 +109,16 @@ describe('ExpensesService (Integration)', () => {
     const categoryNameRaw = 'Alimentação';
     const categoryNameNormalized = 'Alimentacao';
 
-    await service.createFromTelegram({ telegramId, amount: 50, categoryName: categoryNameRaw });
-    await service.createFromTelegram({ telegramId, amount: 100, categoryName: categoryNameRaw });
+    await service.createFromTelegram({
+      telegramId,
+      amount: 50,
+      categoryName: categoryNameRaw,
+    });
+    await service.createFromTelegram({
+      telegramId,
+      amount: 100,
+      categoryName: categoryNameRaw,
+    });
 
     const categories = await prisma.category.findMany({
       where: { telegram_id: telegramId, name: categoryNameNormalized },

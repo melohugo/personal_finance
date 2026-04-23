@@ -16,9 +16,15 @@ describe('TelegramParserUtils', () => {
     });
 
     it('should normalize category name (accents, casing, spaces)', () => {
-      expect(parseGastoCommand('10 alimentacao').categoryName).toBe('Alimentacao');
-      expect(parseGastoCommand('10 ALIMENTAÇÃO').categoryName).toBe('Alimentacao');
-      expect(parseGastoCommand('10   alimentação  ').categoryName).toBe('Alimentacao');
+      expect(parseGastoCommand('10 alimentacao').categoryName).toBe(
+        'Alimentacao',
+      );
+      expect(parseGastoCommand('10 ALIMENTAÇÃO').categoryName).toBe(
+        'Alimentacao',
+      );
+      expect(parseGastoCommand('10   alimentação  ').categoryName).toBe(
+        'Alimentacao',
+      );
     });
 
     it('should parse valid command with commas in amount', () => {
