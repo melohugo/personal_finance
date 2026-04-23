@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { Prisma } from '@prisma/client';
+import { normalizeCategoryName } from '../telegram/telegram-parser.utils';
 
 export interface CreateExpenseFromTelegramDto {
   telegramId: bigint;
   amount: number;
   categoryName: string;
+  date?: Date;
 }
 
 export interface ListExpensesDto {
@@ -28,16 +30,18 @@ export class ExpensesService {
   constructor(private prisma: PrismaService) {}
 
   async createFromTelegram(dto: CreateExpenseFromTelegramDto) {
-    const { telegramId, amount, categoryName } = dto;
+    const { telegramId, amount, categoryName: rawCategoryName, date } = dto;
 
     if (amount <= 0) {
       throw new Error('Amount must be greater than zero');
     }
 
+    const categoryName = normalizeCategoryName(rawCategoryName);
+
     return await this.prisma.expense.create({
       data: {
         amount: amount,
-        date: new Date(),
+        date: date || new Date(),
         user: {
           connect: { telegram_id: telegramId },
         },
@@ -64,7 +68,7 @@ export class ExpensesService {
     expenseId: string,
     dto: UpdateExpenseDto,
   ) {
-    const { amount, categoryName, date, description } = dto;
+    const { amount, categoryName: rawCategoryName, date, description } = dto;
 
     const data: Prisma.ExpenseUpdateInput = {};
     if (amount !== undefined) {
@@ -74,7 +78,8 @@ export class ExpensesService {
     if (date !== undefined) data.date = date;
     if (description !== undefined) data.description = description;
 
-    if (categoryName !== undefined) {
+    if (rawCategoryName !== undefined) {
+      const categoryName = normalizeCategoryName(rawCategoryName);
       data.category = {
         connectOrCreate: {
           where: {
@@ -91,6 +96,7 @@ export class ExpensesService {
       };
     }
 
+
     return await this.prisma.expense.update({
       where: {
         id: expenseId,
@@ -105,13 +111,14 @@ export class ExpensesService {
     categoryId: string,
     newName: string,
   ) {
+    const normalizedName = normalizeCategoryName(newName);
     return await this.prisma.category.update({
       where: {
         id: categoryId,
         telegram_id: telegramId,
       },
       data: {
-        name: newName,
+        name: normalizedName,
       },
     });
   }

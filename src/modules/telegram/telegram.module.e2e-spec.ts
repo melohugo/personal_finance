@@ -139,7 +139,7 @@ describe('TelegramModule (Integration)', () => {
 
     // Verify reply
     expect(ctx.reply).toHaveBeenCalledWith(
-      expect.stringContaining('Gasto de R$ 85.5 registrado em Restaurante! ✅'),
+      expect.stringContaining('Gasto de R$ 85.50 registrado em Restaurante! ✅'),
     );
 
     // Verify database persistence

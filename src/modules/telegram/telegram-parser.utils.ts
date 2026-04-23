@@ -1,6 +1,18 @@
+export function normalizeCategoryName(name: string): string {
+  return name
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 export function parseGastoCommand(args: string): {
   amount: number;
   categoryName: string;
+  date?: Date;
 } {
   const parts = args.trim().split(/\s+/);
 
@@ -15,9 +27,43 @@ export function parseGastoCommand(args: string): {
     throw new Error('Valor inválido. Por favor, envie um número.');
   }
 
-  const categoryName = parts.slice(1).join(' ');
+  let date: Date | undefined;
+  let categoryEndIndex = parts.length;
+  const lastPart = parts[parts.length - 1];
 
-  return { amount, categoryName };
+  const dateMatchFull = lastPart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const dateMatchMonth = lastPart.match(/^(\d{1,2})\/(\d{1,2})$/);
+  const dateMatchDay = lastPart.match(/^(\d{1,2})$/);
+
+  if (dateMatchFull) {
+    const day = parseInt(dateMatchFull[1], 10);
+    const month = parseInt(dateMatchFull[2], 10) - 1;
+    const year = parseInt(dateMatchFull[3], 10);
+    date = new Date(year, month, day);
+    categoryEndIndex--;
+  } else if (dateMatchMonth) {
+    const day = parseInt(dateMatchMonth[1], 10);
+    const month = parseInt(dateMatchMonth[2], 10) - 1;
+    const year = new Date().getFullYear();
+    date = new Date(year, month, day);
+    categoryEndIndex--;
+  } else if (dateMatchDay && parts.length > 2) {
+    const day = parseInt(dateMatchDay[1], 10);
+    if (day >= 1 && day <= 31) {
+      const now = new Date();
+      date = new Date(now.getFullYear(), now.getMonth(), day);
+      categoryEndIndex--;
+    }
+  }
+
+  const categoryNameRaw = parts.slice(1, categoryEndIndex).join(' ');
+  const categoryName = normalizeCategoryName(categoryNameRaw);
+
+  if (!categoryName) {
+    throw new Error('Use o formato: /gasto <valor> <categoria>');
+  }
+
+  return { amount, categoryName, date };
 }
 
 export type ListarType = 'gastos' | 'categorias' | 'investimentos';
