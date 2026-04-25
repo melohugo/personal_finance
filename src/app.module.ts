@@ -22,6 +22,7 @@ import { PrismaModule } from './common/prisma.module';
 
         return {
           token,
+          path: '/telegraf',
           middlewares: [session()],
           launchOptions: baseUrl
             ? {
