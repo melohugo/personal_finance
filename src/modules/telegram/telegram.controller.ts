@@ -10,7 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectBot } from 'nestjs-telegraf';
 import { Telegraf, Context } from 'telegraf';
-import { Update } from 'telegraf/types';
+import * as TelegrafTypes from 'telegraf/types';
 
 @Controller('telegraf-webhook')
 export class TelegramController {
@@ -22,7 +22,7 @@ export class TelegramController {
   @Post()
   @HttpCode(HttpStatus.OK)
   async handleWebhook(
-    @Body() update: Update,
+    @Body() update: TelegrafTypes.Update,
     @Headers('x-telegram-bot-api-secret-token') secretToken: string,
   ) {
     const expectedToken = this.configService.get<string>(
