@@ -94,7 +94,7 @@ describe('TelegramModule (Integration)', () => {
     });
   });
 
-  const mockContext = (text: string, id: bigint) =>
+  const mockContext = (text: string, id: bigint, match: string[] = []) =>
     ({
       message: { text, from: { id: Number(id) } },
       from: { id: Number(id) },
@@ -103,6 +103,7 @@ describe('TelegramModule (Integration)', () => {
       replyWithMarkdown: jest.fn().mockResolvedValue({} as any),
       answerCbQuery: jest.fn().mockResolvedValue(true),
       callbackQuery: { data: '' },
+      match,
     }) as unknown as Context;
 
   it('should list investments from real database using /listar investimentos', async () => {
@@ -202,7 +203,7 @@ describe('TelegramModule (Integration)', () => {
     );
 
     // 3. Simulate click on the expense button
-    const editCtx = mockContext('', telegramId);
+    const editCtx = mockContext('', telegramId, [`edit_exp_${expense.id}`, expense.id]);
     (editCtx.callbackQuery as any).data = `edit_exp_${expense.id}`;
     (editCtx as any).session = {}; // Persistent session simulation
 
@@ -213,7 +214,7 @@ describe('TelegramModule (Integration)', () => {
     });
 
     // 4. Simulate field selection (amount)
-    const fieldCtx = mockContext('', telegramId);
+    const fieldCtx = mockContext('', telegramId, ['edit_field_amount', 'amount']);
     (fieldCtx.callbackQuery as any).data = 'edit_field_amount';
     (fieldCtx as any).session = editCtx.session;
 
@@ -243,7 +244,7 @@ describe('TelegramModule (Integration)', () => {
     });
 
     // 2. Click category
-    const editCtx = mockContext('', telegramId);
+    const editCtx = mockContext('', telegramId, [`edit_cat_${category.id}`, category.id]);
     (editCtx.callbackQuery as any).data = `edit_cat_${category.id}`;
     (editCtx as any).session = {};
 

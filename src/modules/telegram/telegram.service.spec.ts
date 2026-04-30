@@ -52,7 +52,7 @@ describe('TelegramService', () => {
     updateOperation: jest.fn(),
   };
 
-  const mockContext = (text: string, telegramId = 12345) =>
+  const mockContext = (text: string, telegramId = 12345, match: string[] = []) =>
     ({
       message: { text },
       from: { id: telegramId },
@@ -62,7 +62,7 @@ describe('TelegramService', () => {
       editMessageText: jest.fn().mockResolvedValue({} as any),
       answerCbQuery: jest.fn().mockResolvedValue(true),
       callbackQuery: { data: '' },
-      match: [] as string[],
+      match,
       update: {
         callback_query: {
           data: '',
@@ -294,12 +294,11 @@ describe('TelegramService', () => {
 
   describe('Actions', () => {
     it('should handle edit expense click by setting session and asking field', async () => {
-      const ctx = mockContext('');
+      const ctx = mockContext('', 12345, ['edit_exp_123', '123']);
       (ctx.callbackQuery as any).data = 'edit_exp_123';
       (ctx as any).session = {};
 
-      // @ts-expect-error - testing internal handler
-      await service.onEditExpense(ctx);
+      await service.onEditExpense(ctx as any);
 
       expect((ctx as any).session.editId).toBe('123');
       expect((ctx as any).session.editType).toBe('expense');
