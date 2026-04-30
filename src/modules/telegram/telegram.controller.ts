@@ -1,7 +1,16 @@
-import { Controller, Post, Body, Headers, HttpCode, HttpStatus, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectBot } from 'nestjs-telegraf';
 import { Telegraf, Context } from 'telegraf';
+import { Update } from 'telegraf/types';
 
 @Controller('telegraf-webhook')
 export class TelegramController {
@@ -13,10 +22,12 @@ export class TelegramController {
   @Post()
   @HttpCode(HttpStatus.OK)
   async handleWebhook(
-    @Body() update: any,
+    @Body() update: Update,
     @Headers('x-telegram-bot-api-secret-token') secretToken: string,
   ) {
-    const expectedToken = this.configService.get<string>('TELEGRAM_WEBHOOK_SECRET');
+    const expectedToken = this.configService.get<string>(
+      'TELEGRAM_WEBHOOK_SECRET',
+    );
 
     // Validação de segurança opcional, mas recomendada
     if (expectedToken && secretToken !== expectedToken) {

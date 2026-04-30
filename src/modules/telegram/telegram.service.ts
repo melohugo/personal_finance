@@ -1,4 +1,13 @@
-import { Update, Start, Help, On, Ctx, Command, Action, InjectBot } from 'nestjs-telegraf';
+import {
+  Update,
+  Start,
+  Help,
+  On,
+  Ctx,
+  Command,
+  Action,
+  InjectBot,
+} from 'nestjs-telegraf';
 import { Context, Markup, Telegraf } from 'telegraf';
 import { Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -26,6 +35,10 @@ interface SessionData {
 
 interface MyContext extends Context {
   session: SessionData;
+}
+
+interface ExtendedContext extends MyContext {
+  match: RegExpExecArray;
 }
 
 @Update()
@@ -79,7 +92,9 @@ export class TelegramService implements OnModuleInit {
             this.logger.error(`Mensagem: ${error.message}`);
           }
         } else {
-          this.logger.log(`Aguardando ${delay / 1000}s para próxima tentativa...`);
+          this.logger.log(
+            `Aguardando ${delay / 1000}s para próxima tentativa...`,
+          );
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
@@ -381,13 +396,14 @@ export class TelegramService implements OnModuleInit {
   }
 
   @Action(/^del:(exp|cat|inv):(.+)$/)
-  async onDeleteAction(@Ctx() ctx: Context) {
+  async onDeleteAction(@Ctx() ctx: ExtendedContext) {
     if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
-    const match = (ctx as any).match;
+    const match = ctx.match;
     const type = match[1];
     const id = match[2];
 
-    const originalText = (ctx.callbackQuery.message as any)?.text || '';
+    const message = ctx.callbackQuery.message;
+    const originalText = message && 'text' in message ? message.text : '';
 
     await ctx.editMessageText(
       `⚠️ *Deseja realmente deletar este item?*\n\nID: ${id}\nOriginal: ${originalText}`,
@@ -405,9 +421,9 @@ export class TelegramService implements OnModuleInit {
   }
 
   @Action(/^conf_del:(exp|cat|inv):(.+)$/)
-  async onConfirmDeleteAction(@Ctx() ctx: Context) {
+  async onConfirmDeleteAction(@Ctx() ctx: ExtendedContext) {
     if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
-    const match = (ctx as any).match;
+    const match = ctx.match;
     const type = match[1];
     const id = match[2];
     const telegramId = BigInt(ctx.from?.id || 0);
@@ -436,9 +452,9 @@ export class TelegramService implements OnModuleInit {
   }
 
   @Action(/^edit_exp_(.+)$/)
-  async onEditExpense(@Ctx() ctx: MyContext) {
+  async onEditExpense(@Ctx() ctx: ExtendedContext) {
     if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
-    const expenseId = ctx.callbackQuery.data.replace('edit_exp_', '');
+    const expenseId = ctx.match[1];
     ctx.session.editType = 'expense';
     ctx.session.editId = expenseId;
 
@@ -456,9 +472,9 @@ export class TelegramService implements OnModuleInit {
   }
 
   @Action(/^edit_cat_(.+)$/)
-  async onEditCategory(@Ctx() ctx: MyContext) {
+  async onEditCategory(@Ctx() ctx: ExtendedContext) {
     if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
-    const categoryId = ctx.callbackQuery.data.replace('edit_cat_', '');
+    const categoryId = ctx.match[1];
     ctx.session.editType = 'category';
     ctx.session.editId = categoryId;
 
@@ -467,9 +483,9 @@ export class TelegramService implements OnModuleInit {
   }
 
   @Action(/^edit_inv_(.+)$/)
-  async onEditInvestment(@Ctx() ctx: MyContext) {
+  async onEditInvestment(@Ctx() ctx: ExtendedContext) {
     if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
-    const operationId = ctx.callbackQuery.data.replace('edit_inv_', '');
+    const operationId = ctx.match[1];
     ctx.session.editType = 'investment';
     ctx.session.editId = operationId;
 
@@ -486,9 +502,9 @@ export class TelegramService implements OnModuleInit {
   }
 
   @Action(/^edit_field_(.+)$/)
-  async onEditField(@Ctx() ctx: MyContext) {
+  async onEditField(@Ctx() ctx: ExtendedContext) {
     if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
-    const field = ctx.callbackQuery.data.replace('edit_field_', '');
+    const field = ctx.match[1];
     ctx.session.editField = field;
 
     const fieldNames: Record<string, string> = {

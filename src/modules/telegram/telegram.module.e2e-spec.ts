@@ -8,7 +8,10 @@ import { PrismaModule } from '../../common/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { TelegrafModule, getBotToken } from 'nestjs-telegraf';
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import {
+  PostgreSqlContainer,
+  StartedPostgreSqlContainer,
+} from '@testcontainers/postgresql';
 import { execSync } from 'child_process';
 import { Context } from 'telegraf';
 import { of } from 'rxjs';

@@ -15,7 +15,6 @@ describe('Telegram Configuration Logic', () => {
     // Simula a factory do AppModule
     const token = configService.get<string>('TELEGRAM_BOT_TOKEN');
     const url = configService.get<string>('BASE_URL');
-    const secret = configService.get<string>('TELEGRAM_WEBHOOK_SECRET');
 
     if (!token || !url) {
       throw new Error(
