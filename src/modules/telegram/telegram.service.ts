@@ -41,28 +41,48 @@ export class TelegramService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    try {
-      const baseUrl = this.configService.get<string>('BASE_URL');
-      const secretToken = this.configService.get<string>(
-        'TELEGRAM_WEBHOOK_SECRET',
-      );
-      const webhookUrl = `${baseUrl}/telegraf-webhook`;
+    await this.setupWebhookWithRetry();
+  }
 
-      this.logger.log(`Configurando Webhook para: ${webhookUrl}`);
+  private async setupWebhookWithRetry(retries = 3, delay = 5000) {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const baseUrl = this.configService.get<string>('BASE_URL');
+        const secretToken = this.configService.get<string>(
+          'TELEGRAM_WEBHOOK_SECRET',
+        );
+        const webhookUrl = `${baseUrl}/telegraf-webhook`;
 
-      await this.bot.telegram.setWebhook(webhookUrl, {
-        secret_token: secretToken,
-      });
+        this.logger.log(
+          `Configurando Webhook (Tentativa ${i + 1}/${retries}): ${webhookUrl}`,
+        );
 
-      const info = await this.bot.telegram.getWebhookInfo();
-      this.logger.log(`Telegram Webhook configurado com sucesso!`);
-      this.logger.log(`URL Ativa: ${info.url}`);
+        await this.bot.telegram.setWebhook(webhookUrl, {
+          secret_token: secretToken,
+        });
 
-      if (info.pending_update_count > 0) {
-        this.logger.warn(`Mensagens pendentes: ${info.pending_update_count}`);
+        const info = await this.bot.telegram.getWebhookInfo();
+        this.logger.log(`Telegram Webhook configurado com sucesso!`);
+        this.logger.log(`URL Ativa: ${info.url}`);
+
+        if (info.pending_update_count > 0) {
+          this.logger.warn(`Mensagens pendentes: ${info.pending_update_count}`);
+        }
+        return;
+      } catch (error) {
+        this.logger.error(
+          `Falha na tentativa ${i + 1}/${retries} de configurar webhook.`,
+        );
+        if (i === retries - 1) {
+          this.logger.error('Todas as tentativas falharam.');
+          if (error instanceof Error) {
+            this.logger.error(`Mensagem: ${error.message}`);
+          }
+        } else {
+          this.logger.log(`Aguardando ${delay / 1000}s para próxima tentativa...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
       }
-    } catch (error) {
-      this.logger.error('Erro ao configurar webhook:', error);
     }
   }
 

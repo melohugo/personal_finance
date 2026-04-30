@@ -30,6 +30,7 @@ import { PrismaModule } from './common/prisma.module';
           token,
           path: '/telegraf-webhook',
           middlewares: [session()],
+          launchOptions: false,
         };
       },
     }),
