@@ -17,21 +17,19 @@ import { PrismaModule } from './common/prisma.module';
     TelegrafModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const token = configService.get<string>('TELEGRAM_BOT_TOKEN') || '';
+        const token = configService.get<string>('TELEGRAM_BOT_TOKEN');
         const baseUrl = configService.get<string>('BASE_URL');
+
+        if (!token || !baseUrl) {
+          throw new Error(
+            'TELEGRAM_BOT_TOKEN e BASE_URL são obrigatórios para o funcionamento do Webhook.',
+          );
+        }
 
         return {
           token,
-          path: '/telegraf',
+          path: '/telegraf-webhook',
           middlewares: [session()],
-          launchOptions: baseUrl
-            ? {
-                webhook: {
-                  domain: baseUrl,
-                  hookPath: '/telegraf',
-                },
-              }
-            : undefined,
         };
       },
     }),

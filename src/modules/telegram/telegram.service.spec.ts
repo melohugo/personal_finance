@@ -6,9 +6,29 @@ import { ExpensesService } from '../expenses/expenses.service';
 import { UsersService } from '../users/users.service';
 import { InvestmentsService } from '../investments/investments.service';
 import { Context } from 'telegraf';
+import { getBotToken } from 'nestjs-telegraf';
+import { ConfigService } from '@nestjs/config';
 
 describe('TelegramService', () => {
   let service: TelegramService;
+
+  const mockBot = {
+    telegram: {
+      setWebhook: jest.fn().mockResolvedValue(true),
+      getWebhookInfo: jest.fn().mockResolvedValue({
+        url: 'https://test.com',
+        pending_update_count: 0,
+      }),
+    },
+  };
+
+  const mockConfigService = {
+    get: jest.fn((key: string) => {
+      if (key === 'BASE_URL') return 'https://test.com';
+      if (key === 'TELEGRAM_WEBHOOK_SECRET') return 'secret';
+      return undefined;
+    }),
+  };
 
   const mockExpensesService = {
     createFromTelegram: jest.fn(),
@@ -59,6 +79,8 @@ describe('TelegramService', () => {
         { provide: ExpensesService, useValue: mockExpensesService },
         { provide: UsersService, useValue: mockUsersService },
         { provide: InvestmentsService, useValue: mockInvestmentsService },
+        { provide: getBotToken(), useValue: mockBot },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -89,6 +111,7 @@ describe('TelegramService', () => {
 
       await service.onStatus(ctx);
 
+      expect(mockBot.telegram.getWebhookInfo).toHaveBeenCalled();
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('Estou online e operacional!'),
       );

@@ -10,6 +10,13 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: BASE_URL
+        fromService:
+          name: personal-finance-api
+          type: web
+          property: host
+      - key: TELEGRAM_WEBHOOK_SECRET
+        generateValue: true
       - key: DATABASE_URL
         sync: false
       - key: TELEGRAM_BOT_TOKEN

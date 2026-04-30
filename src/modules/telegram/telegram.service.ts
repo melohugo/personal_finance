@@ -1,5 +1,7 @@
-import { Update, Start, Help, On, Ctx, Command, Action } from 'nestjs-telegraf';
-import { Context, Markup } from 'telegraf';
+import { Update, Start, Help, On, Ctx, Command, Action, InjectBot } from 'nestjs-telegraf';
+import { Context, Markup, Telegraf } from 'telegraf';
+import { Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   parseGastoCommand,
   parseListarCommand,
@@ -27,12 +29,42 @@ interface MyContext extends Context {
 }
 
 @Update()
-export class TelegramService {
+export class TelegramService implements OnModuleInit {
+  private readonly logger = new Logger(TelegramService.name);
+
   constructor(
+    @InjectBot() private readonly bot: Telegraf<Context>,
     private readonly expensesService: ExpensesService,
     private readonly usersService: UsersService,
     private readonly investmentsService: InvestmentsService,
+    private readonly configService: ConfigService,
   ) {}
+
+  async onModuleInit() {
+    try {
+      const baseUrl = this.configService.get<string>('BASE_URL');
+      const secretToken = this.configService.get<string>(
+        'TELEGRAM_WEBHOOK_SECRET',
+      );
+      const webhookUrl = `${baseUrl}/telegraf-webhook`;
+
+      this.logger.log(`Configurando Webhook para: ${webhookUrl}`);
+
+      await this.bot.telegram.setWebhook(webhookUrl, {
+        secret_token: secretToken,
+      });
+
+      const info = await this.bot.telegram.getWebhookInfo();
+      this.logger.log(`Telegram Webhook configurado com sucesso!`);
+      this.logger.log(`URL Ativa: ${info.url}`);
+
+      if (info.pending_update_count > 0) {
+        this.logger.warn(`Mensagens pendentes: ${info.pending_update_count}`);
+      }
+    } catch (error) {
+      this.logger.error('Erro ao configurar webhook:', error);
+    }
+  }
 
   @Start()
   async start(@Ctx() ctx: Context) {
@@ -63,10 +95,13 @@ export class TelegramService {
     const uptime = process.uptime();
     const hours = Math.floor(uptime / 3600);
     const minutes = Math.floor((uptime % 3600) / 60);
+    const webhook = await this.bot.telegram.getWebhookInfo();
 
     await ctx.reply(
       `🚀 Estou online e operacional!\n` +
         `⏱️ Tempo de atividade: ${hours}h ${minutes}m\n` +
+        `🌐 Webhook URL: ${webhook.url || 'Nenhuma (Polling?)'}\n` +
+        `📩 Pendentes: ${webhook.pending_update_count}\n` +
         `📅 Data atual: ${new Date().toLocaleString('pt-BR')}`,
     );
   }

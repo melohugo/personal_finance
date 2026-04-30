@@ -7,13 +7,10 @@ import { PrismaService } from '../../common/prisma.service';
 import { PrismaModule } from '../../common/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
-import {
-  PostgreSqlContainer,
-  StartedPostgreSqlContainer,
-} from '@testcontainers/postgresql';
+import { TelegrafModule, getBotToken } from 'nestjs-telegraf';
+import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { execSync } from 'child_process';
 import { Context } from 'telegraf';
-import { getBotToken } from 'nestjs-telegraf';
 import { of } from 'rxjs';
 
 describe('TelegramModule (Integration)', () => {
@@ -39,6 +36,7 @@ describe('TelegramModule (Integration)', () => {
       imports: [
         ConfigModule.forRoot({ isGlobal: true }),
         PrismaModule,
+        TelegrafModule.forRoot({ token: 'mock_token' }),
         TelegramModule,
       ],
     })
@@ -49,6 +47,11 @@ describe('TelegramModule (Integration)', () => {
         stop: jest.fn(),
         telegram: {
           getMe: jest.fn().mockResolvedValue({ id: 1, first_name: 'Bot' }),
+          setWebhook: jest.fn().mockResolvedValue(true),
+          getWebhookInfo: jest.fn().mockResolvedValue({
+            url: 'https://test.com',
+            pending_update_count: 0,
+          }),
         },
       })
       .overrideProvider(HttpService)
