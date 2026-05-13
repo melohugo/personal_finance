@@ -11,6 +11,9 @@ import {
 import { Context, Markup, Telegraf } from 'telegraf';
 import { Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import Redis from 'ioredis';
 import {
   parseGastoCommand,
   parseListarCommand,
@@ -44,14 +47,19 @@ interface ExtendedContext extends MyContext {
 @Update()
 export class TelegramService implements OnModuleInit {
   private readonly logger = new Logger(TelegramService.name);
+  private redis: Redis;
 
   constructor(
     @InjectBot() private readonly bot: Telegraf<Context>,
+    @InjectQueue('receipt_processing') private readonly receiptQueue: Queue,
     private readonly expensesService: ExpensesService,
     private readonly usersService: UsersService,
     private readonly investmentsService: InvestmentsService,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    const redisUrl = this.configService.get<string>('REDIS_URL') || 'redis://localhost:6379';
+    this.redis = new Redis(redisUrl);
+  }
 
   async onModuleInit() {
     await this.setupWebhookWithRetry();
@@ -393,6 +401,84 @@ export class TelegramService implements OnModuleInit {
     } catch (error) {
       await this.handleError(ctx, error, 'carregar dados para edição');
     }
+  }
+
+  @On('photo')
+  async onPhoto(@Ctx() ctx: Context) {
+    try {
+      if (!ctx.message || !('photo' in ctx.message)) return;
+
+      const telegramId = BigInt(ctx.from?.id || 0);
+      const photo = ctx.message.photo[ctx.message.photo.length - 1]; // Get highest resolution
+      const fileId = photo.file_id;
+
+      // Get file link from Telegram
+      const fileLink = await this.bot.telegram.getFileLink(fileId);
+      const imageUrl = fileLink.toString();
+
+      // Get user existing categories to help Gemini
+      const categories = await this.expensesService.listCategories(telegramId);
+      const categoryNames = categories.map((c) => c.name);
+
+      // Add to processing queue
+      await this.receiptQueue.add('process_receipt', {
+        imageUrl,
+        telegramId: telegramId.toString(),
+        existingCategories: categoryNames,
+      });
+
+      await ctx.reply('📷 Imagem recebida! Estou analisando com IA, um momento...');
+    } catch (error) {
+      await this.handleError(ctx, error, 'processar foto');
+    }
+  }
+
+  @Action(/^conf_ai:(.+)$/)
+  async onConfirmAI(@Ctx() ctx: ExtendedContext) {
+    if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
+    const pendingId = ctx.match[1];
+    const telegramId = BigInt(ctx.from?.id || 0);
+
+    try {
+      const redisKey = `pending_expense:${pendingId}`;
+      const cachedData = await this.redis.get(redisKey);
+
+      if (!cachedData) {
+        return await ctx.editMessageText('❌ Esta pendência expirou ou já foi processada.');
+      }
+
+      const { expenses } = JSON.parse(cachedData);
+      
+      for (const expense of expenses) {
+        // Parse YYYY-MM-DD manually to avoid timezone shifts
+        const [year, month, day] = expense.date.split('-').map(Number);
+        const date = new Date(Date.UTC(year, month - 1, day));
+        
+        await this.expensesService.createFromTelegram({
+          telegramId,
+          amount: expense.amount,
+          categoryName: expense.category,
+          date,
+        });
+      }
+
+      await this.redis.del(redisKey);
+      await ctx.editMessageText(`✅ ${expenses.length} gastos registrados com sucesso via IA!`);
+    } catch (error) {
+      await this.handleError(ctx, error, 'confirmar registro da IA');
+    }
+    await ctx.answerCbQuery();
+  }
+
+  @Action(/^canc_ai:(.+)$/)
+  async onCancelAI(@Ctx() ctx: ExtendedContext) {
+    if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
+    const pendingId = ctx.match[1];
+    const redisKey = `pending_expense:${pendingId}`;
+
+    await this.redis.del(redisKey);
+    await ctx.editMessageText('Registro descartado ❌');
+    await ctx.answerCbQuery();
   }
 
   @Action(/^del:(exp|cat|inv):(.+)$/)
