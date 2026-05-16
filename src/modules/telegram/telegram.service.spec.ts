@@ -396,12 +396,54 @@ describe('TelegramService', () => {
 
       expect(mockBot.telegram.getFileLink).toHaveBeenCalledWith('photo_id');
       expect(mockQueue.add).toHaveBeenCalledWith('process_receipt', {
-        imageUrl: 'https://api.telegram.org/file/bot/123',
+        fileUrl: 'https://api.telegram.org/file/bot/123',
+        fileMimeType: 'image/jpeg',
         telegramId: '12345',
         existingCategories: ['Comida'],
       });
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('Imagem recebida!'),
+      );
+    });
+  });
+
+  describe('onDocument', () => {
+    it('should add PDF document task to the queue', async () => {
+      const ctx = mockContext('');
+      (ctx.message as any).document = {
+        file_id: 'pdf_id',
+        mime_type: 'application/pdf',
+      };
+      mockExpensesService.listCategories.mockResolvedValue([]);
+
+      await service.onDocument(ctx);
+
+      expect(mockBot.telegram.getFileLink).toHaveBeenCalledWith('pdf_id');
+      expect(mockQueue.add).toHaveBeenCalledWith('process_receipt', {
+        fileUrl: 'https://api.telegram.org/file/bot/123',
+        fileMimeType: 'application/pdf',
+        telegramId: '12345',
+        existingCategories: [],
+      });
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('PDF recebido!'),
+      );
+    });
+
+    it('should reject non-PDF documents', async () => {
+      const ctx = mockContext('');
+      (ctx.message as any).document = {
+        file_id: 'doc_id',
+        mime_type: 'application/msword',
+      };
+
+      await service.onDocument(ctx);
+
+      expect(mockQueue.add).not.toHaveBeenCalled();
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Por favor, envie o extrato apenas em formato PDF',
+        ),
       );
     });
   });

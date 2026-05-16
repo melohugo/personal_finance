@@ -21,7 +21,7 @@ describe('ReceiptProcessorWorker', () => {
   let redisMock: jest.Mocked<Redis>;
 
   const mockGeminiService = {
-    extractExpenseFromImage: jest.fn(),
+    extractExpenseFromFile: jest.fn(),
   };
 
   const mockConfigService = {
@@ -58,13 +58,14 @@ describe('ReceiptProcessorWorker', () => {
 
   describe('process', () => {
     const jobData = {
-      imageUrl: 'http://example.com/image.jpg',
+      fileUrl: 'http://example.com/receipt.jpg',
+      fileMimeType: 'image/jpeg',
       telegramId: '123456',
       existingCategories: ['Food', 'Transport'],
     };
-    const job = { data: jobData, id: '1' } as Job;
+    const job = { data: jobData, id: '1' } as Job<any, any, string>;
 
-    it('should process receipt and send confirmation message', async () => {
+    it('should process file and send confirmation message', async () => {
       const extractedExpenses = [
         {
           amount: 50,
@@ -81,15 +82,16 @@ describe('ReceiptProcessorWorker', () => {
           isNewCategory: false,
         },
       ];
-      mockGeminiService.extractExpenseFromImage.mockResolvedValue(
+      mockGeminiService.extractExpenseFromFile.mockResolvedValue(
         extractedExpenses,
       );
       (randomUUID as jest.Mock).mockReturnValue('uuid-123');
 
       const result = await worker.process(job);
 
-      expect(geminiService.extractExpenseFromImage).toHaveBeenCalledWith(
-        jobData.imageUrl,
+      expect(geminiService.extractExpenseFromFile).toHaveBeenCalledWith(
+        jobData.fileUrl,
+        jobData.fileMimeType,
         jobData.existingCategories,
       );
 
@@ -126,7 +128,7 @@ describe('ReceiptProcessorWorker', () => {
     });
 
     it('should handle no expenses found', async () => {
-      mockGeminiService.extractExpenseFromImage.mockResolvedValue([]);
+      mockGeminiService.extractExpenseFromFile.mockResolvedValue([]);
 
       const result = await worker.process(job);
 
@@ -140,13 +142,13 @@ describe('ReceiptProcessorWorker', () => {
 
     it('should notify user and throw on error', async () => {
       const error = new Error('Gemini failed');
-      mockGeminiService.extractExpenseFromImage.mockRejectedValue(error);
+      mockGeminiService.extractExpenseFromFile.mockRejectedValue(error);
 
       await expect(worker.process(job)).rejects.toThrow('Gemini failed');
 
       expect(bot.telegram.sendMessage).toHaveBeenCalledWith(
         123456,
-        expect.stringContaining('erro ao processar sua imagem com IA'),
+        expect.stringContaining('erro ao processar seu arquivo com IA'),
       );
     });
   });

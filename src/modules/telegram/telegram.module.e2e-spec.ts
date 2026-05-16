@@ -343,4 +343,49 @@ describe('TelegramModule (Integration)', () => {
     const remains = await service['redis'].get(redisKey);
     expect(remains).toBeNull();
   });
+
+  it('should accept PDF document and enqueue processing job', async () => {
+    // 1. Setup mock context for document
+    const ctx = mockContext('', telegramId);
+    (ctx.message as any).document = {
+      file_id: 'pdf_id_123',
+      mime_type: 'application/pdf',
+    };
+
+    // Explicitly mock the queue
+    jest
+      .spyOn(service['receiptQueue'], 'add')
+      .mockResolvedValue({ id: 'job-pdf' } as any);
+
+    // In E2E, the bot might be a real instance or a complex mock.
+    // Let's mock the specific bot methods on the service instance if they are not already mocks.
+    if (!jest.isMockFunction(service['bot'].telegram.getFileLink)) {
+      service['bot'].telegram.getFileLink = jest
+        .fn()
+        .mockResolvedValue(new URL('https://api.telegram.org/file/bot/pdf123'));
+    } else {
+      (service['bot'].telegram.getFileLink as jest.Mock).mockResolvedValue(
+        new URL('https://api.telegram.org/file/bot/pdf123'),
+      );
+    }
+
+    // 2. Execute onDocument
+    await service.onDocument(ctx as any);
+
+    // 3. Verify
+    expect(service['bot'].telegram.getFileLink).toHaveBeenCalledWith(
+      'pdf_id_123',
+    );
+    expect(service['receiptQueue'].add).toHaveBeenCalledWith(
+      'process_receipt',
+      expect.objectContaining({
+        fileUrl: 'https://api.telegram.org/file/bot/pdf123',
+        fileMimeType: 'application/pdf',
+        telegramId: telegramId.toString(),
+      }),
+    );
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('PDF recebido'),
+    );
+  });
 });

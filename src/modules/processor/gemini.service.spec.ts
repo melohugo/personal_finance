@@ -50,14 +50,15 @@ describe('GeminiService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('extractExpenseFromImage', () => {
-    it('should extract expense data correctly', async () => {
+  describe('extractExpenseFromFile', () => {
+    it('should extract expense data from an image correctly', async () => {
       const imageUrl = 'https://example.com/receipt.jpg';
+      const mimeType = 'image/jpeg';
       const existingCategories = ['Alimentação', 'Transporte'];
 
       mockedAxios.get.mockResolvedValue({
         data: Buffer.from('fake_image_data'),
-        headers: { 'content-type': 'image/jpeg' },
+        headers: { 'content-type': 'application/octet-stream' }, // Telegram quirk
       });
 
       const mockResponseText = JSON.stringify([
@@ -76,8 +77,9 @@ describe('GeminiService', () => {
         },
       });
 
-      const result = await service.extractExpenseFromImage(
+      const result = await service.extractExpenseFromFile(
         imageUrl,
+        mimeType,
         existingCategories,
       );
 
@@ -95,6 +97,7 @@ describe('GeminiService', () => {
         timeout: 10000,
         family: 4,
       });
+      // Verify that the explicitly passed mimeType was used, ignoring the header
       expect(mockGetGenerativeModel).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'gemini-2.5-flash',
@@ -102,34 +105,51 @@ describe('GeminiService', () => {
       );
     });
 
-    it('should handle markdown JSON response', async () => {
-      const imageUrl = 'https://example.com/receipt.jpg';
-      mockedAxios.get.mockResolvedValue({
-        data: Buffer.from('fake_image_data'),
-        headers: { 'content-type': 'image/jpeg' },
-      });
+    it('should extract data from a PDF file', async () => {
+      const pdfUrl = 'https://example.com/statement.pdf';
+      const mimeType = 'application/pdf';
 
-      const mockResponseText =
-        '```json\n[{\n  "amount": 10,\n  "category": "Lazer",\n  "date": "2026-05-11",\n  "description": "Cinema",\n  "isNewCategory": true\n}]\n```';
+      mockedAxios.get.mockResolvedValue({
+        data: Buffer.from('fake_pdf_data'),
+        headers: { 'content-type': 'application/pdf' },
+      });
 
       mockGenerateContent.mockResolvedValue({
         response: {
-          text: () => mockResponseText,
+          text: () =>
+            JSON.stringify([
+              {
+                amount: 100,
+                category: 'Lazer',
+                date: '2026-05-15',
+                description: 'Show',
+                isNewCategory: false,
+              },
+            ]),
         },
       });
 
-      const result = await service.extractExpenseFromImage(imageUrl, []);
+      const result = await service.extractExpenseFromFile(pdfUrl, mimeType, []);
 
-      expect(result[0].amount).toBe(10);
-      expect(result[0].category).toBe('Lazer');
+      expect(result[0].amount).toBe(100);
+      expect(mockGenerateContent).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.any(String),
+          expect.objectContaining({
+            inlineData: expect.objectContaining({
+              mimeType: 'application/pdf',
+            }),
+          }),
+        ]),
+      );
     });
 
     it('should throw error when image download fails', async () => {
       mockedAxios.get.mockRejectedValue(new Error('Download failed'));
 
-      await expect(service.extractExpenseFromImage('url', [])).rejects.toThrow(
-        'Falha de rede ao baixar a imagem do Telegram.',
-      );
+      await expect(
+        service.extractExpenseFromFile('url', 'image/jpeg', []),
+      ).rejects.toThrow('Falha de rede ao baixar a imagem do Telegram.');
     });
 
     it('should throw error when Gemini API fails', async () => {
@@ -140,9 +160,9 @@ describe('GeminiService', () => {
 
       mockGenerateContent.mockRejectedValue(new Error('API Error'));
 
-      await expect(service.extractExpenseFromImage('url', [])).rejects.toThrow(
-        'Falha na comunicação com a API do Gemini.',
-      );
+      await expect(
+        service.extractExpenseFromFile('url', 'image/jpeg', []),
+      ).rejects.toThrow('Falha na comunicação com a API do Gemini.');
     });
 
     it('should throw error when Gemini returns invalid JSON', async () => {
@@ -157,9 +177,9 @@ describe('GeminiService', () => {
         },
       });
 
-      await expect(service.extractExpenseFromImage('url', [])).rejects.toThrow(
-        'A resposta da IA não está em um formato válido.',
-      );
+      await expect(
+        service.extractExpenseFromFile('url', 'image/jpeg', []),
+      ).rejects.toThrow('A resposta da IA não está em um formato válido.');
     });
   });
 });
