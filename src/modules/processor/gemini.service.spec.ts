@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { GeminiService } from './gemini.service';
 import { ConfigService } from '@nestjs/config';
@@ -59,13 +60,15 @@ describe('GeminiService', () => {
         headers: { 'content-type': 'image/jpeg' },
       });
 
-      const mockResponseText = JSON.stringify([{
-        amount: 25.5,
-        category: 'Alimentação',
-        date: '2026-05-11',
-        description: 'Almoço',
-        isNewCategory: false,
-      }]);
+      const mockResponseText = JSON.stringify([
+        {
+          amount: 25.5,
+          category: 'Alimentação',
+          date: '2026-05-11',
+          description: 'Almoço',
+          isNewCategory: false,
+        },
+      ]);
 
       mockGenerateContent.mockResolvedValue({
         response: {
@@ -73,23 +76,30 @@ describe('GeminiService', () => {
         },
       });
 
-      const result = await service.extractExpenseFromImage(imageUrl, existingCategories);
+      const result = await service.extractExpenseFromImage(
+        imageUrl,
+        existingCategories,
+      );
 
-      expect(result).toEqual([{
-        amount: 25.5,
-        category: 'Alimentação',
-        date: '2026-05-11',
-        description: 'Almoço',
-        isNewCategory: false,
-      }]);
-      expect(mockedAxios.get).toHaveBeenCalledWith(imageUrl, { 
+      expect(result).toEqual([
+        {
+          amount: 25.5,
+          category: 'Alimentação',
+          date: '2026-05-11',
+          description: 'Almoço',
+          isNewCategory: false,
+        },
+      ]);
+      expect(mockedAxios.get).toHaveBeenCalledWith(imageUrl, {
         responseType: 'arraybuffer',
         timeout: 10000,
-        family: 4
+        family: 4,
       });
-      expect(mockGetGenerativeModel).toHaveBeenCalledWith(expect.objectContaining({
-        model: 'gemini-2.5-flash',
-      }));
+      expect(mockGetGenerativeModel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'gemini-2.5-flash',
+        }),
+      );
     });
 
     it('should handle markdown JSON response', async () => {
@@ -99,7 +109,8 @@ describe('GeminiService', () => {
         headers: { 'content-type': 'image/jpeg' },
       });
 
-      const mockResponseText = '```json\n[{\n  "amount": 10,\n  "category": "Lazer",\n  "date": "2026-05-11",\n  "description": "Cinema",\n  "isNewCategory": true\n}]\n```';
+      const mockResponseText =
+        '```json\n[{\n  "amount": 10,\n  "category": "Lazer",\n  "date": "2026-05-11",\n  "description": "Cinema",\n  "isNewCategory": true\n}]\n```';
 
       mockGenerateContent.mockResolvedValue({
         response: {
@@ -116,7 +127,9 @@ describe('GeminiService', () => {
     it('should throw error when image download fails', async () => {
       mockedAxios.get.mockRejectedValue(new Error('Download failed'));
 
-      await expect(service.extractExpenseFromImage('url', [])).rejects.toThrow('Falha de rede ao baixar a imagem do Telegram.');
+      await expect(service.extractExpenseFromImage('url', [])).rejects.toThrow(
+        'Falha de rede ao baixar a imagem do Telegram.',
+      );
     });
 
     it('should throw error when Gemini API fails', async () => {
@@ -127,7 +140,9 @@ describe('GeminiService', () => {
 
       mockGenerateContent.mockRejectedValue(new Error('API Error'));
 
-      await expect(service.extractExpenseFromImage('url', [])).rejects.toThrow('Falha na comunicação com a API do Gemini.');
+      await expect(service.extractExpenseFromImage('url', [])).rejects.toThrow(
+        'Falha na comunicação com a API do Gemini.',
+      );
     });
 
     it('should throw error when Gemini returns invalid JSON', async () => {
@@ -142,7 +157,9 @@ describe('GeminiService', () => {
         },
       });
 
-      await expect(service.extractExpenseFromImage('url', [])).rejects.toThrow('A resposta da IA não está em um formato válido.');
+      await expect(service.extractExpenseFromImage('url', [])).rejects.toThrow(
+        'A resposta da IA não está em um formato válido.',
+      );
     });
   });
 });

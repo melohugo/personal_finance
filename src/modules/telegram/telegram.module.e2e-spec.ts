@@ -8,10 +8,12 @@ import { PrismaModule } from '../../common/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { TelegrafModule, getBotToken } from 'nestjs-telegraf';
+import { BullModule } from '@nestjs/bullmq';
 import {
   PostgreSqlContainer,
   StartedPostgreSqlContainer,
 } from '@testcontainers/postgresql';
+import { GenericContainer, StartedTestContainer } from 'testcontainers';
 import { execSync } from 'child_process';
 import { Context } from 'telegraf';
 import { of } from 'rxjs';
@@ -21,23 +23,38 @@ describe('TelegramModule (Integration)', () => {
   let service: TelegramService;
   let prisma: PrismaService;
   let container: StartedPostgreSqlContainer;
+  let redisContainer: StartedTestContainer;
 
   const telegramId = 123456789n;
 
   beforeAll(async () => {
+    // 1. Start Postgres
     container = await new PostgreSqlContainer('postgres:15-alpine').start();
     const databaseUrl = `postgresql://${container.getUsername()}:${container.getPassword()}@${container.getHost()}:${container.getMappedPort(5432)}/${container.getDatabase()}?schema=public`;
+
+    // 2. Start Redis
+    redisContainer = await new GenericContainer('redis:7-alpine')
+      .withExposedPorts(6379)
+      .start();
+    const redisUrl = `redis://${redisContainer.getHost()}:${redisContainer.getMappedPort(6379)}`;
 
     execSync(`npx prisma db push --url="${databaseUrl}" --accept-data-loss`, {
       stdio: 'inherit',
     });
 
     process.env.DATABASE_URL = databaseUrl;
+    process.env.REDIS_URL = redisUrl;
     process.env.TELEGRAM_BOT_TOKEN = 'mock_token';
 
     moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true }),
+        BullModule.forRoot({
+          connection: {
+            host: redisContainer.getHost(),
+            port: redisContainer.getMappedPort(6379),
+          },
+        }),
         PrismaModule,
         TelegrafModule.forRoot({ token: 'mock_token' }),
         TelegramModule,
@@ -79,7 +96,12 @@ describe('TelegramModule (Integration)', () => {
     if (container) {
       await container.stop();
     }
+    if (redisContainer) {
+      await redisContainer.stop();
+    }
   });
+
+  jest.setTimeout(90000);
 
   beforeEach(async () => {
     await prisma.assetOperation.deleteMany({});
@@ -203,7 +225,10 @@ describe('TelegramModule (Integration)', () => {
     );
 
     // 3. Simulate click on the expense button
-    const editCtx = mockContext('', telegramId, [`edit_exp_${expense.id}`, expense.id]);
+    const editCtx = mockContext('', telegramId, [
+      `edit_exp_${expense.id}`,
+      expense.id,
+    ]);
     (editCtx.callbackQuery as any).data = `edit_exp_${expense.id}`;
     (editCtx as any).session = {}; // Persistent session simulation
 
@@ -214,7 +239,10 @@ describe('TelegramModule (Integration)', () => {
     });
 
     // 4. Simulate field selection (amount)
-    const fieldCtx = mockContext('', telegramId, ['edit_field_amount', 'amount']);
+    const fieldCtx = mockContext('', telegramId, [
+      'edit_field_amount',
+      'amount',
+    ]);
     (fieldCtx.callbackQuery as any).data = 'edit_field_amount';
     (fieldCtx as any).session = editCtx.session;
 
@@ -244,7 +272,10 @@ describe('TelegramModule (Integration)', () => {
     });
 
     // 2. Click category
-    const editCtx = mockContext('', telegramId, [`edit_cat_${category.id}`, category.id]);
+    const editCtx = mockContext('', telegramId, [
+      `edit_cat_${category.id}`,
+      category.id,
+    ]);
     (editCtx.callbackQuery as any).data = `edit_cat_${category.id}`;
     (editCtx as any).session = {};
 
@@ -261,5 +292,55 @@ describe('TelegramModule (Integration)', () => {
       where: { id: category.id },
     });
     expect(updated?.name).toBe('Nova Categoria');
+  });
+
+  it('should process AI confirmation and save multiple expenses to real database', async () => {
+    const pendingId = 'test-pending-123';
+    const redisKey = `pending_expense:${pendingId}`;
+    const mockData = {
+      telegramId: telegramId.toString(),
+      expenses: [
+        {
+          amount: 42.5,
+          category: 'Alimentação',
+          date: '2026-05-16',
+          description: 'Lanche',
+        },
+        {
+          amount: 10.0,
+          category: 'Transporte',
+          date: '2026-05-16',
+          description: 'Ônibus',
+        },
+      ],
+    };
+
+    // 1. Manually seed Redis
+    await service['redis'].set(redisKey, JSON.stringify(mockData));
+
+    // 2. Execute onConfirmAI
+    const ctx = mockContext('', telegramId, [
+      `conf_ai:${pendingId}`,
+      pendingId,
+    ]);
+    (ctx as any).editMessageText = jest.fn().mockResolvedValue({} as any);
+
+    await service.onConfirmAI(ctx as any);
+
+    // 3. Verify Database
+    const expenses = await prisma.expense.findMany({
+      where: { telegram_id: telegramId },
+      include: { category: true },
+    });
+
+    expect(expenses).toHaveLength(2);
+    expect(expenses.map((e) => Number(e.amount))).toContain(42.5);
+    expect(expenses.map((e) => Number(e.amount))).toContain(10);
+    expect(expenses.map((e) => e.category.name)).toContain('Alimentacao');
+    expect(expenses.map((e) => e.category.name)).toContain('Transporte');
+
+    // 4. Verify Redis cleanup
+    const remains = await service['redis'].get(redisKey);
+    expect(remains).toBeNull();
   });
 });

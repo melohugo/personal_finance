@@ -10,6 +10,8 @@ import { getBotToken } from 'nestjs-telegraf';
 import { ConfigService } from '@nestjs/config';
 import { getQueueToken } from '@nestjs/bullmq';
 
+jest.mock('ioredis');
+
 describe('TelegramService', () => {
   let service: TelegramService;
 
@@ -20,7 +22,9 @@ describe('TelegramService', () => {
         url: 'https://test.com',
         pending_update_count: 0,
       }),
-      getFileLink: jest.fn().mockResolvedValue(new URL('https://api.telegram.org/file/bot/123')),
+      getFileLink: jest
+        .fn()
+        .mockResolvedValue(new URL('https://api.telegram.org/file/bot/123')),
     },
   };
 
@@ -58,7 +62,11 @@ describe('TelegramService', () => {
     add: jest.fn().mockResolvedValue({ id: '1' }),
   };
 
-  const mockContext = (text: string, telegramId = 12345, match: string[] = []) =>
+  const mockContext = (
+    text: string,
+    telegramId = 12345,
+    match: string[] = [],
+  ) =>
     ({
       message: { text, photo: [{ file_id: 'photo_id' }] },
       from: { id: telegramId },
@@ -380,7 +388,9 @@ describe('TelegramService', () => {
     it('should add image processing task to the queue', async () => {
       const ctx = mockContext('');
       (ctx.message as any).photo = [{ file_id: 'photo_id' }];
-      mockExpensesService.listCategories.mockResolvedValue([{ name: 'Comida' }]);
+      mockExpensesService.listCategories.mockResolvedValue([
+        { name: 'Comida' },
+      ]);
 
       await service.onPhoto(ctx);
 
@@ -397,30 +407,59 @@ describe('TelegramService', () => {
   });
 
   describe('onConfirmAI', () => {
-    it('should register expense with correctly parsed date', async () => {
+    it('should register multiple expenses with correctly parsed dates', async () => {
       const ctx = mockContext('');
       (ctx as any).match = ['conf_ai:pending-123', 'pending-123'];
       const mockData = {
-        amount: 100,
-        category: 'Saúde',
-        date: '2026-05-15',
-        description: 'Farmácia',
+        telegramId: '12345',
+        expenses: [
+          {
+            amount: 100,
+            category: 'Saúde',
+            date: '2026-05-15',
+            description: 'Farmácia',
+          },
+          {
+            amount: 50,
+            category: 'Alimentação',
+            date: '2026-05-16',
+            description: 'Mercado',
+          },
+        ],
       };
-      
+
       // Mock Redis get
-      service['redis'].get = jest.fn().mockResolvedValue(JSON.stringify(mockData));
+      service['redis'].get = jest
+        .fn()
+        .mockResolvedValue(JSON.stringify(mockData));
       service['redis'].del = jest.fn().mockResolvedValue(1);
-      
+
       await service.onConfirmAI(ctx as any);
 
-      expect(mockExpensesService.createFromTelegram).toHaveBeenCalledWith({
-        telegramId: 12345n,
-        amount: 100,
-        categoryName: 'Saúde',
-        date: new Date(2026, 4, 15), // May is 4 (0-indexed)
-      });
+      expect(mockExpensesService.createFromTelegram).toHaveBeenCalledTimes(2);
+      expect(mockExpensesService.createFromTelegram).toHaveBeenNthCalledWith(
+        1,
+        {
+          telegramId: 12345n,
+          amount: 100,
+          categoryName: 'Saúde',
+          date: new Date(Date.UTC(2026, 4, 15)),
+        },
+      );
+      expect(mockExpensesService.createFromTelegram).toHaveBeenNthCalledWith(
+        2,
+        {
+          telegramId: 12345n,
+          amount: 50,
+          categoryName: 'Alimentação',
+          date: new Date(Date.UTC(2026, 4, 16)),
+        },
+      );
       expect(ctx.editMessageText).toHaveBeenCalledWith(
-        expect.stringContaining('Gasto registrado com sucesso'),
+        expect.stringContaining('2 gastos registrados com sucesso via IA!'),
+      );
+      expect(service['redis'].del).toHaveBeenCalledWith(
+        'pending_expense:pending-123',
       );
     });
 
@@ -434,6 +473,24 @@ describe('TelegramService', () => {
       expect(ctx.editMessageText).toHaveBeenCalledWith(
         expect.stringContaining('pendência expirou'),
       );
+    });
+  });
+
+  describe('onCancelAI', () => {
+    it('should discard pending registration and delete from redis', async () => {
+      const ctx = mockContext('');
+      (ctx as any).match = ['canc_ai:pending-123', 'pending-123'];
+      service['redis'].del = jest.fn().mockResolvedValue(1);
+
+      await service.onCancelAI(ctx as any);
+
+      expect(service['redis'].del).toHaveBeenCalledWith(
+        'pending_expense:pending-123',
+      );
+      expect(ctx.editMessageText).toHaveBeenCalledWith(
+        'Registro descartado ❌',
+      );
+      expect(ctx.answerCbQuery).toHaveBeenCalled();
     });
   });
 

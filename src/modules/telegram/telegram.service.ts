@@ -9,7 +9,7 @@ import {
   InjectBot,
 } from 'nestjs-telegraf';
 import { Context, Markup, Telegraf } from 'telegraf';
-import { Logger, OnModuleInit } from '@nestjs/common';
+import { Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -45,7 +45,7 @@ interface ExtendedContext extends MyContext {
 }
 
 @Update()
-export class TelegramService implements OnModuleInit {
+export class TelegramService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TelegramService.name);
   private redis: Redis;
 
@@ -57,12 +57,21 @@ export class TelegramService implements OnModuleInit {
     private readonly investmentsService: InvestmentsService,
     private readonly configService: ConfigService,
   ) {
-    const redisUrl = this.configService.get<string>('REDIS_URL') || 'redis://localhost:6379';
+    const redisUrl =
+      this.configService.get<string>('REDIS_URL') || 'redis://localhost:6379';
     this.redis = new Redis(redisUrl);
+    this.redis.on('error', (err) => {
+      this.logger.error('Redis error:', err);
+    });
   }
 
   async onModuleInit() {
     await this.setupWebhookWithRetry();
+  }
+
+  async onModuleDestroy() {
+    this.logger.log('Closing Redis connection in TelegramService...');
+    await this.redis.quit();
   }
 
   private async setupWebhookWithRetry(retries = 3, delay = 5000) {
@@ -427,7 +436,9 @@ export class TelegramService implements OnModuleInit {
         existingCategories: categoryNames,
       });
 
-      await ctx.reply('📷 Imagem recebida! Estou analisando com IA, um momento...');
+      await ctx.reply(
+        '📷 Imagem recebida! Estou analisando com IA, um momento...',
+      );
     } catch (error) {
       await this.handleError(ctx, error, 'processar foto');
     }
@@ -444,16 +455,18 @@ export class TelegramService implements OnModuleInit {
       const cachedData = await this.redis.get(redisKey);
 
       if (!cachedData) {
-        return await ctx.editMessageText('❌ Esta pendência expirou ou já foi processada.');
+        return await ctx.editMessageText(
+          '❌ Esta pendência expirou ou já foi processada.',
+        );
       }
 
       const { expenses } = JSON.parse(cachedData);
-      
+
       for (const expense of expenses) {
         // Parse YYYY-MM-DD manually to avoid timezone shifts
         const [year, month, day] = expense.date.split('-').map(Number);
         const date = new Date(Date.UTC(year, month - 1, day));
-        
+
         await this.expensesService.createFromTelegram({
           telegramId,
           amount: expense.amount,
@@ -463,7 +476,9 @@ export class TelegramService implements OnModuleInit {
       }
 
       await this.redis.del(redisKey);
-      await ctx.editMessageText(`✅ ${expenses.length} gastos registrados com sucesso via IA!`);
+      await ctx.editMessageText(
+        `✅ ${expenses.length} gastos registrados com sucesso via IA!`,
+      );
     } catch (error) {
       await this.handleError(ctx, error, 'confirmar registro da IA');
     }

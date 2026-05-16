@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 
 export interface ExtractedExpense {
@@ -19,7 +19,9 @@ export class GeminiService {
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY') || '';
     if (!apiKey) {
-      this.logger.error('GEMINI_API_KEY is not defined in environment variables');
+      this.logger.error(
+        'GEMINI_API_KEY is not defined in environment variables',
+      );
     }
     this.genAI = new GoogleGenerativeAI(apiKey);
   }
@@ -35,17 +37,19 @@ export class GeminiService {
 
     // 1. Download image with timeout
     try {
-      const response = await axios.get(imageUrl, {
+      const response = await axios.get<ArrayBuffer>(imageUrl, {
         responseType: 'arraybuffer',
         timeout: 10000, // 10 seconds timeout
-        family: 4,     // Force IPv4 to avoid IPv6 resolution issues in Docker
+        family: 4, // Force IPv4 to avoid IPv6 resolution issues in Docker
       });
-      const imageBuffer = Buffer.from(response.data, 'binary');
+      const imageBuffer = Buffer.from(response.data);
       imageBase64 = imageBuffer.toString('base64');
-      
+
       // Sanitização do MIME type: Telegram muitas vezes retorna application/octet-stream
-      const rawMimeType = response.headers['content-type'] || 'image/jpeg';
-      mimeType = rawMimeType === 'application/octet-stream' ? 'image/jpeg' : rawMimeType;
+      const rawMimeType =
+        (response.headers['content-type'] as string) || 'image/jpeg';
+      mimeType =
+        rawMimeType === 'application/octet-stream' ? 'image/jpeg' : rawMimeType;
     } catch (error) {
       this.logger.error(`Failed to download image from ${imageUrl}:`, error);
       throw new Error('Falha de rede ao baixar a imagem do Telegram.');
@@ -100,11 +104,19 @@ export class GeminiService {
       this.logger.debug(`Gemini Raw Response: ${textResponse}`);
 
       const extractedData = this.parseAndCleanJson(textResponse);
-      
+
       // Ensure we always return an array
-      return Array.isArray(extractedData) ? extractedData : [extractedData];
-    } catch (error) {
-      if (error.message?.includes('A resposta da IA não está em um formato válido')) {
+      if (Array.isArray(extractedData)) {
+        return extractedData as ExtractedExpense[];
+      }
+      return [extractedData as ExtractedExpense];
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        error.message?.includes(
+          'A resposta da IA não está em um formato válido',
+        )
+      ) {
         throw error;
       }
       this.logger.error('Error during Gemini API processing:', error);
@@ -112,12 +124,12 @@ export class GeminiService {
     }
   }
 
-  private parseAndCleanJson(text: string): any {
+  private parseAndCleanJson(text: string): unknown {
     try {
       // Remove possible markdown code blocks
       const cleaned = text.replace(/```json|```/g, '').trim();
       return JSON.parse(cleaned);
-    } catch (error) {
+    } catch {
       this.logger.error(`Failed to parse JSON response: ${text}`);
       throw new Error('A resposta da IA não está em um formato válido.');
     }
