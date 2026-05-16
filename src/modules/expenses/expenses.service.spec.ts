@@ -10,6 +10,7 @@ const mockPrisma = {
     findMany: jest.fn(),
     delete: jest.fn(),
     update: jest.fn(),
+    findFirst: jest.fn(),
   },
   category: {
     findMany: jest.fn(),
@@ -45,8 +46,9 @@ describe('ExpensesService', () => {
     const amount = 50.5;
     const categoryNameRaw = 'alimentação';
     const categoryNameNormalized = 'Alimentacao';
+    const description = 'Almoço Restaurante';
 
-    it('should create an expense with normalized category and current date if none provided', async () => {
+    it('should create an expense with normalized category, description and current date if none provided', async () => {
       mockPrisma.expense.create.mockResolvedValue({
         id: 'exp-123',
         amount,
@@ -57,12 +59,14 @@ describe('ExpensesService', () => {
         telegramId,
         amount,
         categoryName: categoryNameRaw,
+        description,
       });
 
       expect(mockPrisma.expense.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             amount,
+            description,
             date: expect.any(Date),
             category: {
               connectOrCreate: {
@@ -122,6 +126,51 @@ describe('ExpensesService', () => {
           categoryName: categoryNameRaw,
         }),
       ).rejects.toThrow('Amount must be greater than zero');
+    });
+  });
+
+  describe('findDuplicate', () => {
+    const telegramId = 123456789n;
+
+    it('should return an expense if a duplicate exists on the same day', async () => {
+      const date = new Date('2026-05-15T12:00:00Z');
+      const start = new Date(Date.UTC(2026, 4, 15, 0, 0, 0));
+      const end = new Date(Date.UTC(2026, 4, 15, 23, 59, 59, 999));
+
+      mockPrisma.expense.findFirst.mockResolvedValue({ id: 'duplicate-1' });
+
+      const result = await service.findDuplicate(
+        telegramId,
+        100.5,
+        date,
+        'Alimentação',
+      );
+
+      expect(result).toEqual({ id: 'duplicate-1' });
+      expect(mockPrisma.expense.findFirst).toHaveBeenCalledWith({
+        where: {
+          telegram_id: telegramId,
+          amount: 100.5,
+          date: {
+            gte: start,
+            lte: end,
+          },
+          category: {
+            name: 'Alimentacao',
+          },
+        },
+      });
+    });
+
+    it('should return null if no duplicate exists', async () => {
+      mockPrisma.expense.findFirst.mockResolvedValue(null);
+      const result = await service.findDuplicate(
+        telegramId,
+        50,
+        new Date(),
+        'Saúde',
+      );
+      expect(result).toBeNull();
     });
   });
 

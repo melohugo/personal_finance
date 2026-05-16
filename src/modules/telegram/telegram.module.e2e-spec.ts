@@ -17,6 +17,15 @@ import { GenericContainer, StartedTestContainer } from 'testcontainers';
 import { execSync } from 'child_process';
 import { Context } from 'telegraf';
 import { of } from 'rxjs';
+import { randomUUID } from 'crypto';
+
+jest.mock('crypto', () => {
+  const actual = jest.requireActual('crypto');
+  return {
+    ...actual,
+    randomUUID: jest.fn().mockImplementation(() => actual.randomUUID()),
+  };
+});
 
 describe('TelegramModule (Integration)', () => {
   let moduleRef: TestingModule;
@@ -342,6 +351,89 @@ describe('TelegramModule (Integration)', () => {
     // 4. Verify Redis cleanup
     const remains = await service['redis'].get(redisKey);
     expect(remains).toBeNull();
+  });
+
+  it('should detect duplicate when trying to register same expense and allow saving it', async () => {
+    // 1. Create an existing expense manually
+    const date = new Date(Date.UTC(2026, 4, 16));
+    await prisma.category.create({
+      data: {
+        name: 'Alimentacao',
+        telegram_id: telegramId,
+        expenses: {
+          create: {
+            amount: 42.5,
+            date: date,
+            telegram_id: telegramId,
+          },
+        },
+      },
+    });
+
+    // 2. Try to register same expense via AI confirmation
+    const pendingId = 'ai-dup-test';
+    const mockData = {
+      telegramId: telegramId.toString(),
+      expenses: [
+        {
+          amount: 42.5,
+          category: 'Alimentacao',
+          date: '2026-05-16',
+          description: 'Lanche Repetido',
+        },
+      ],
+    };
+    await service['redis'].set(
+      `pending_expense:${pendingId}`,
+      JSON.stringify(mockData),
+    );
+
+    const ctx = mockContext('', telegramId, [
+      `conf_ai:${pendingId}`,
+      pendingId,
+    ]);
+    (ctx as any).editMessageText = jest.fn().mockResolvedValue({});
+    (ctx as any).callbackQuery = { data: `conf_ai:${pendingId}` };
+
+    if (!jest.isMockFunction(service['bot'].telegram.sendMessage)) {
+      service['bot'].telegram.sendMessage = jest.fn().mockResolvedValue({});
+    }
+
+    // Predictable duplicate ID
+    const dupId = 'uuid-dup-test-123';
+    (randomUUID as jest.Mock).mockReturnValue(dupId);
+
+    await service.onConfirmAI(ctx as any);
+
+    // 3. Verify it was flagged as duplicate (0 saved, summary updated)
+    expect(ctx.editMessageText).toHaveBeenCalledWith(
+      expect.stringContaining('0 gastos registrados'),
+    );
+
+    // 4. Verify duplicate prompt was sent
+    expect(service['bot'].telegram.sendMessage).toHaveBeenCalledWith(
+      Number(telegramId),
+      expect.stringContaining(
+        'Lanche Repetido de R$ 42.50 já parece estar registrado',
+      ),
+      expect.any(Object),
+    );
+
+    // 5. Simulate user clicking "Não ❌" (dup_sav) to save anyway
+    const ctxDup = mockContext('', telegramId, [`dup_sav:${dupId}`, dupId]);
+    (ctxDup as any).editMessageText = jest.fn().mockResolvedValue({});
+    (ctxDup as any).callbackQuery = { data: `dup_sav:${dupId}` };
+
+    await service.onDuplicateSave(ctxDup as any);
+
+    // 6. Verify second expense was created
+    const expenses = await prisma.expense.findMany({
+      where: { telegram_id: telegramId },
+    });
+    expect(expenses).toHaveLength(2);
+    expect(ctxDup.editMessageText).toHaveBeenCalledWith(
+      expect.stringContaining('Gasto registrado com sucesso'),
+    );
   });
 
   it('should accept PDF document and enqueue processing job', async () => {

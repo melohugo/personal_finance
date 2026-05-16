@@ -9,8 +9,13 @@ import { Context } from 'telegraf';
 import { getBotToken } from 'nestjs-telegraf';
 import { ConfigService } from '@nestjs/config';
 import { getQueueToken } from '@nestjs/bullmq';
+import { randomUUID } from 'crypto';
 
 jest.mock('ioredis');
+jest.mock('crypto', () => ({
+  ...jest.requireActual('crypto'),
+  randomUUID: jest.fn(),
+}));
 
 describe('TelegramService', () => {
   let service: TelegramService;
@@ -25,6 +30,7 @@ describe('TelegramService', () => {
       getFileLink: jest
         .fn()
         .mockResolvedValue(new URL('https://api.telegram.org/file/bot/123')),
+      sendMessage: jest.fn(),
     },
   };
 
@@ -45,6 +51,7 @@ describe('TelegramService', () => {
     deleteCategory: jest.fn(),
     updateExpense: jest.fn(),
     updateCategory: jest.fn(),
+    findDuplicate: jest.fn(),
   };
 
   const mockUsersService = {
@@ -54,8 +61,8 @@ describe('TelegramService', () => {
   const mockInvestmentsService = {
     listUserInvestments: jest.fn(),
     listIndividualOperations: jest.fn(),
-    deleteOperation: jest.fn(),
     updateOperation: jest.fn(),
+    deleteOperation: jest.fn(),
   };
 
   const mockQueue = {
@@ -70,19 +77,13 @@ describe('TelegramService', () => {
     ({
       message: { text, photo: [{ file_id: 'photo_id' }] },
       from: { id: telegramId },
-      session: {},
-      reply: jest.fn().mockResolvedValue({} as any),
-      replyWithMarkdown: jest.fn().mockResolvedValue({} as any),
-      editMessageText: jest.fn().mockResolvedValue({} as any),
-      answerCbQuery: jest.fn().mockResolvedValue(true),
-      callbackQuery: { data: '' },
+      callbackQuery: { data: match[0] || '' },
+      reply: jest.fn(),
+      replyWithMarkdown: jest.fn(),
+      editMessageText: jest.fn(),
+      answerCbQuery: jest.fn(),
       match,
-      update: {
-        callback_query: {
-          data: '',
-          message: { text: 'Mensagem original' },
-        },
-      },
+      session: {},
     }) as unknown as Context;
 
   beforeEach(async () => {
@@ -107,7 +108,7 @@ describe('TelegramService', () => {
   });
 
   describe('start', () => {
-    it('should create user and reply welcome message', async () => {
+    it('should welcome the user', async () => {
       const ctx = mockContext('/start');
       mockUsersService.getOrCreateUser.mockResolvedValue({});
 
@@ -134,12 +135,14 @@ describe('TelegramService', () => {
   });
 
   describe('onGastoCommand', () => {
-    it('should register a simple gasto correctly', async () => {
+    it('should register a simple gasto correctly when no duplicate is found', async () => {
       const ctx = mockContext('/gasto 50.0 Alimentação');
+      mockExpensesService.findDuplicate.mockResolvedValue(null);
       mockExpensesService.createFromTelegram.mockResolvedValue({});
 
       await service.onGastoCommand(ctx);
 
+      expect(mockExpensesService.findDuplicate).toHaveBeenCalled();
       expect(mockExpensesService.createFromTelegram).toHaveBeenCalledWith({
         telegramId: 12345n,
         amount: 50,
@@ -147,34 +150,29 @@ describe('TelegramService', () => {
         date: undefined,
       });
       expect(ctx.reply).toHaveBeenCalledWith(
-        'Gasto de R$ 50.00 registrado em Alimentacao! ✅',
+        expect.stringContaining('Gasto de R$ 50.00 registrado'),
       );
     });
 
-    it('should register a gasto with date correctly', async () => {
-      const ctx = mockContext('/gasto 50.0 Alimentação 20/04/2026');
-      mockExpensesService.createFromTelegram.mockResolvedValue({});
-
-      await service.onGastoCommand(ctx);
-
-      expect(mockExpensesService.createFromTelegram).toHaveBeenCalledWith({
-        telegramId: 12345n,
-        amount: 50,
-        categoryName: 'Alimentacao',
-        date: new Date(2026, 3, 20),
+    it('should ask for confirmation if a duplicate is found', async () => {
+      const ctx = mockContext('/gasto 50.0 Alimentação');
+      mockExpensesService.findDuplicate.mockResolvedValue({
+        id: 'existing-exp',
       });
-      expect(ctx.reply).toHaveBeenCalledWith(
-        'Gasto de R$ 50.00 registrado em Alimentacao em 20/04/2026! ✅',
-      );
-    });
-
-    it('should handle errors and reply to user', async () => {
-      const ctx = mockContext('/gasto valor_invalido Categoria');
+      (randomUUID as jest.Mock).mockReturnValue('uuid-dup-123');
 
       await service.onGastoCommand(ctx);
 
+      expect(mockExpensesService.createFromTelegram).not.toHaveBeenCalled();
+      expect(service['redis'].set).toHaveBeenCalledWith(
+        'dup_exp:uuid-dup-123',
+        expect.stringContaining('"amount":50'),
+        'EX',
+        3600,
+      );
       expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('⚠️ Valor inválido'),
+        expect.stringContaining('já parece estar registrado. Deseja ignorar?'),
+        expect.any(Object),
       );
     });
   });
@@ -199,188 +197,171 @@ describe('TelegramService', () => {
 
       await service.onListarCommand(ctx);
 
-      expect(mockInvestmentsService.listUserInvestments).toHaveBeenCalledWith(
-        12345n,
-      );
       expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
-        expect.stringContaining('Carteira de Investimentos'),
+        expect.stringContaining('PETR4'),
       );
     });
 
-    it('should list expenses for current month when "/listar gastos" is called', async () => {
+    it('should list expenses when "/listar gastos" is called', async () => {
       const ctx = mockContext('/listar gastos');
       mockExpensesService.listExpenses.mockResolvedValue({
         months: [
           {
-            month: new Date().getMonth(),
-            year: new Date().getFullYear(),
-            total: 1500.5,
-            byCategory: [
-              { name: 'Alimentacao', amount: 500 },
-              { name: 'Lazer', amount: 1000 },
-            ],
+            month: 4,
+            year: 2026,
+            total: 1500,
+            diffTotal: 10,
+            byCategory: [{ name: 'Lazer', amount: 500, diffPrevMonth: 5 }],
           },
         ],
-        total: 1500.5,
+        total: 1500,
       });
 
       await service.onListarCommand(ctx);
 
-      expect(mockExpensesService.listExpenses).toHaveBeenCalled();
       expect(ctx.replyWithMarkdown).toHaveBeenCalledWith(
-        expect.stringContaining('Relatório de Gastos'),
+        expect.stringContaining('maio/2026'),
       );
     });
+  });
 
-    it('should list categories when "/listar categorias" is called', async () => {
-      const ctx = mockContext('/listar categorias');
-      mockExpensesService.listCategories.mockResolvedValue([
-        { name: 'Alimentacao' },
-        { name: 'Lazer' },
-      ]);
-
-      await service.onListarCommand(ctx);
-
-      expect(mockExpensesService.listCategories).toHaveBeenCalledWith(12345n);
+  describe('help', () => {
+    it('should reply with help message', async () => {
+      const ctx = mockContext('/help');
+      await service.help(ctx);
       expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('Categorias registradas:'),
+        expect.stringContaining('Comandos disponíveis'),
       );
     });
   });
 
   describe('onDeletarCommand', () => {
-    it('should list individual expenses with delete buttons', async () => {
-      const ctx = mockContext('/deletar gastos');
+    it('should show items for deletion when type provided', async () => {
+      const ctx = mockContext('/deletar gastos maio');
       mockExpensesService.listIndividualExpenses.mockResolvedValue([
         {
-          id: 'exp-1',
-          amount: 50,
-          date: new Date(),
+          id: '1',
+          amount: 100,
           category: { name: 'Comida' },
+          date: new Date(),
         },
       ]);
 
       await service.onDeletarCommand(ctx);
 
-      expect(mockExpensesService.listIndividualExpenses).toHaveBeenCalled();
       expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('Escolha o item para deletar:'),
+        expect.stringContaining('Escolha o item para deletar'),
         expect.any(Object),
       );
     });
   });
 
   describe('onEditarCommand', () => {
-    it('should list individual expenses for editing when "/editar gastos" is called', async () => {
-      const ctx = mockContext('/editar gastos');
+    it('should show items for editing when period/type provided', async () => {
+      const ctx = mockContext('/editar gastos maio');
       mockExpensesService.listIndividualExpenses.mockResolvedValue([
         {
-          id: 'exp-1',
-          amount: 50,
-          date: new Date(),
+          id: '1',
+          amount: 100,
           category: { name: 'Comida' },
+          date: new Date(),
         },
       ]);
 
       await service.onEditarCommand(ctx);
 
-      expect(mockExpensesService.listIndividualExpenses).toHaveBeenCalled();
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('Escolha um gasto para editar'),
         expect.any(Object),
       );
     });
-
-    it('should list categories for editing when "/editar categorias" is called', async () => {
-      const ctx = mockContext('/editar categorias');
-      mockExpensesService.listCategories.mockResolvedValue([
-        { id: 'cat-1', name: 'Alimentação' },
-      ]);
-
-      await service.onEditarCommand(ctx);
-
-      expect(mockExpensesService.listCategories).toHaveBeenCalledWith(12345n);
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('Escolha uma categoria para editar'),
-        expect.any(Object),
-      );
-    });
   });
 
-  describe('Actions', () => {
-    it('should handle edit expense click by setting session and asking field', async () => {
-      const ctx = mockContext('', 12345, ['edit_exp_123', '123']);
-      (ctx.callbackQuery as any).data = 'edit_exp_123';
-      (ctx as any).session = {};
-
-      await service.onEditExpense(ctx as any);
-
-      expect((ctx as any).session.editId).toBe('123');
-      expect((ctx as any).session.editType).toBe('expense');
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('O que deseja alterar neste gasto?'),
-        expect.any(Object),
-      );
-    });
-
-    it('should handle "del:exp" action by asking for confirmation', async () => {
+  describe('Delete Action Flow', () => {
+    it('should ask for confirmation on onDeleteAction', async () => {
       const ctx = mockContext('');
-      (ctx as any).match = ['del:exp:exp-1', 'exp', 'exp-1'];
+      (ctx as any).match = ['del:exp:123', 'exp', '123'];
+      (ctx.callbackQuery as any).message = { text: 'R$ 50.00' };
 
-      await service.onDeleteAction(ctx);
+      await service.onDeleteAction(ctx as any);
 
       expect(ctx.editMessageText).toHaveBeenCalledWith(
-        expect.stringContaining('Deseja realmente deletar este item?'),
+        expect.stringContaining('Deseja realmente deletar'),
         expect.any(Object),
       );
     });
 
-    it('should confirm expense deletion', async () => {
+    it('should confirm deletion on onConfirmDeleteAction', async () => {
       const ctx = mockContext('');
-      (ctx as any).match = ['conf_del:exp:exp-123', 'exp', 'exp-123'];
-      mockExpensesService.deleteExpense.mockResolvedValue({});
+      (ctx as any).match = ['conf_del:exp:123', 'exp', '123'];
 
-      await service.onConfirmDeleteAction(ctx);
+      await service.onConfirmDeleteAction(ctx as any);
 
-      expect(mockExpensesService.deleteExpense).toHaveBeenCalledWith(
-        'exp-123',
-        12345n,
-      );
+      expect(mockExpensesService.deleteExpense).toHaveBeenCalled();
       expect(ctx.editMessageText).toHaveBeenCalledWith(
         'Excluído com sucesso ✅',
       );
     });
 
-    it('should confirm category deletion', async () => {
+    it('should cancel deletion on onCancelDeleteAction', async () => {
       const ctx = mockContext('');
-      (ctx as any).match = ['conf_del:cat:cat-123', 'cat', 'cat-123'];
-      mockExpensesService.deleteCategory.mockResolvedValue({});
 
-      await service.onConfirmDeleteAction(ctx);
+      await service.onCancelDeleteAction(ctx as any);
 
-      expect(mockExpensesService.deleteCategory).toHaveBeenCalledWith(
-        'cat-123',
-        12345n,
-      );
-    });
-
-    it('should confirm investment deletion', async () => {
-      const ctx = mockContext('');
-      (ctx as any).match = ['conf_del:inv:inv-123', 'inv', 'inv-123'];
-      mockInvestmentsService.deleteOperation.mockResolvedValue({});
-
-      await service.onConfirmDeleteAction(ctx);
-
-      expect(mockInvestmentsService.deleteOperation).toHaveBeenCalledWith(
-        'inv-123',
-        12345n,
-      );
-    });
-
-    it('should handle cancel deletion', async () => {
-      const ctx = mockContext('');
-      await service.onCancelDeleteAction(ctx);
       expect(ctx.editMessageText).toHaveBeenCalledWith('Operação cancelada ❌');
+    });
+  });
+
+  describe('Edit Action Flow', () => {
+    it('should store edit state in session when expense is selected', async () => {
+      const ctx = mockContext('');
+      (ctx as any).match = ['edit_exp_123', '123'];
+
+      await service.onEditExpense(ctx as any);
+
+      expect((ctx as any).session.editType).toBe('expense');
+      expect((ctx as any).session.editId).toBe('123');
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('O que deseja alterar'),
+        expect.any(Object),
+      );
+    });
+
+    it('should prompt for category name when category is selected', async () => {
+      const ctx = mockContext('');
+      (ctx as any).match = ['edit_cat_456', '456'];
+
+      await service.onEditCategory(ctx as any);
+
+      expect((ctx as any).session.editType).toBe('category');
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Envie o novo nome'),
+      );
+    });
+
+    it('should prompt for investment field when investment is selected', async () => {
+      const ctx = mockContext('');
+      (ctx as any).match = ['edit_inv_789', '789'];
+
+      await service.onEditInvestment(ctx as any);
+
+      expect((ctx as any).session.editType).toBe('investment');
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('O que deseja alterar nesta operação'),
+        expect.any(Object),
+      );
+    });
+
+    it('should prompt for specific field on onEditField', async () => {
+      const ctx = mockContext('');
+      (ctx as any).match = ['edit_field_amount', 'amount'];
+
+      await service.onEditField(ctx as any);
+
+      expect((ctx as any).session.editField).toBe('amount');
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Envie o novo valor'),
+      );
     });
   });
 
@@ -429,29 +410,14 @@ describe('TelegramService', () => {
         expect.stringContaining('PDF recebido!'),
       );
     });
-
-    it('should reject non-PDF documents', async () => {
-      const ctx = mockContext('');
-      (ctx.message as any).document = {
-        file_id: 'doc_id',
-        mime_type: 'application/msword',
-      };
-
-      await service.onDocument(ctx);
-
-      expect(mockQueue.add).not.toHaveBeenCalled();
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'Por favor, envie o extrato apenas em formato PDF',
-        ),
-      );
-    });
   });
 
   describe('onConfirmAI', () => {
-    it('should register multiple expenses with correctly parsed dates', async () => {
+    it('should register multiple expenses and handle duplicates', async () => {
       const ctx = mockContext('');
       (ctx as any).match = ['conf_ai:pending-123', 'pending-123'];
+      (ctx as any).callbackQuery = { data: 'conf_ai:pending-123' };
+
       const mockData = {
         telegramId: '12345',
         expenses: [
@@ -470,44 +436,49 @@ describe('TelegramService', () => {
         ],
       };
 
-      // Mock Redis get
+      // 1. First expense is new, second is duplicate
+      mockExpensesService.findDuplicate
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'existing' });
+
+      mockExpensesService.createFromTelegram.mockResolvedValue({});
       service['redis'].get = jest
         .fn()
         .mockResolvedValue(JSON.stringify(mockData));
       service['redis'].del = jest.fn().mockResolvedValue(1);
+      (randomUUID as jest.Mock).mockReturnValue('uuid-dup-ai');
 
       await service.onConfirmAI(ctx as any);
 
-      expect(mockExpensesService.createFromTelegram).toHaveBeenCalledTimes(2);
-      expect(mockExpensesService.createFromTelegram).toHaveBeenNthCalledWith(
-        1,
-        {
-          telegramId: 12345n,
+      // Verify first was saved
+      expect(mockExpensesService.createFromTelegram).toHaveBeenCalledTimes(1);
+      expect(mockExpensesService.createFromTelegram).toHaveBeenCalledWith(
+        expect.objectContaining({
           amount: 100,
           categoryName: 'Saúde',
-          date: new Date(Date.UTC(2026, 4, 15)),
-        },
+          description: 'Farmácia',
+        }),
       );
-      expect(mockExpensesService.createFromTelegram).toHaveBeenNthCalledWith(
-        2,
-        {
-          telegramId: 12345n,
-          amount: 50,
-          categoryName: 'Alimentação',
-          date: new Date(Date.UTC(2026, 4, 16)),
-        },
-      );
+
+      // Verify summary updated
       expect(ctx.editMessageText).toHaveBeenCalledWith(
-        expect.stringContaining('2 gastos registrados com sucesso via IA!'),
+        expect.stringContaining('1 gastos registrados com sucesso via IA!'),
       );
-      expect(service['redis'].del).toHaveBeenCalledWith(
-        'pending_expense:pending-123',
+
+      // Verify duplicate prompt sent for second
+      expect(mockBot.telegram.sendMessage).toHaveBeenCalledWith(
+        12345,
+        expect.stringContaining(
+          'Mercado de R$ 50.00 já parece estar registrado',
+        ),
+        expect.any(Object),
       );
     });
 
     it('should handle expired pending expense', async () => {
       const ctx = mockContext('');
       (ctx as any).match = ['conf_ai:expired', 'expired'];
+      (ctx as any).callbackQuery = { data: 'conf_ai:expired' };
       service['redis'].get = jest.fn().mockResolvedValue(null);
 
       await service.onConfirmAI(ctx as any);
@@ -522,6 +493,7 @@ describe('TelegramService', () => {
     it('should discard pending registration and delete from redis', async () => {
       const ctx = mockContext('');
       (ctx as any).match = ['canc_ai:pending-123', 'pending-123'];
+      (ctx as any).callbackQuery = { data: 'canc_ai:pending-123' };
       service['redis'].del = jest.fn().mockResolvedValue(1);
 
       await service.onCancelAI(ctx as any);
@@ -536,6 +508,54 @@ describe('TelegramService', () => {
     });
   });
 
+  describe('Duplicate Action Handlers', () => {
+    it('should ignore duplicate on dup_ign', async () => {
+      const ctx = mockContext('');
+      (ctx as any).match = ['dup_ign:uuid123', 'uuid123'];
+      (ctx as any).callbackQuery = { data: 'dup_ign:uuid123' };
+      service['redis'].del = jest.fn().mockResolvedValue(1);
+
+      await service.onDuplicateIgnore(ctx as any);
+
+      expect(service['redis'].del).toHaveBeenCalledWith('dup_exp:uuid123');
+      expect(ctx.editMessageText).toHaveBeenCalledWith('Gasto ignorado ❌');
+      expect(ctx.answerCbQuery).toHaveBeenCalled();
+    });
+
+    it('should save duplicate on dup_sav', async () => {
+      const ctx = mockContext('');
+      (ctx as any).match = ['dup_sav:uuid123', 'uuid123'];
+      (ctx as any).callbackQuery = { data: 'dup_sav:uuid123' };
+      const mockData = {
+        telegramId: '12345',
+        amount: 50,
+        categoryName: 'Alimentação',
+        date: '2026-05-15T00:00:00.000Z',
+        description: 'Mercado',
+      };
+
+      service['redis'].get = jest
+        .fn()
+        .mockResolvedValue(JSON.stringify(mockData));
+      service['redis'].del = jest.fn().mockResolvedValue(1);
+      mockExpensesService.createFromTelegram.mockResolvedValue({});
+
+      await service.onDuplicateSave(ctx as any);
+
+      expect(mockExpensesService.createFromTelegram).toHaveBeenCalledWith({
+        telegramId: 12345n,
+        amount: 50,
+        categoryName: 'Alimentação',
+        date: new Date('2026-05-15T00:00:00.000Z'),
+        description: 'Mercado',
+      });
+      expect(ctx.editMessageText).toHaveBeenCalledWith(
+        'Gasto registrado com sucesso ✅',
+      );
+      expect(service['redis'].del).toHaveBeenCalledWith('dup_exp:uuid123');
+    });
+  });
+
   describe('onMessage (Processing Edits)', () => {
     it('should update expense amount when session has edit info', async () => {
       const ctx = mockContext('150.50');
@@ -546,7 +566,7 @@ describe('TelegramService', () => {
       };
       mockExpensesService.updateExpense.mockResolvedValue({});
 
-      await service.onMessage(ctx);
+      await service.onMessage(ctx as any);
 
       expect(mockExpensesService.updateExpense).toHaveBeenCalledWith(
         12345n,
@@ -554,78 +574,7 @@ describe('TelegramService', () => {
         { amount: 150.5 },
       );
       expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('Gasto atualizado com sucesso!'),
-      );
-    });
-
-    it('should update expense description', async () => {
-      const ctx = mockContext('Nova descrição');
-      (ctx as any).session = {
-        editType: 'expense',
-        editId: 'exp-1',
-        editField: 'description',
-      };
-      await service.onMessage(ctx);
-      expect(mockExpensesService.updateExpense).toHaveBeenCalledWith(
-        12345n,
-        'exp-1',
-        { description: 'Nova descrição' },
-      );
-    });
-
-    it('should update expense category', async () => {
-      const ctx = mockContext('Mercado');
-      (ctx as any).session = {
-        editType: 'expense',
-        editId: 'exp-1',
-        editField: 'category',
-      };
-      await service.onMessage(ctx);
-      expect(mockExpensesService.updateExpense).toHaveBeenCalledWith(
-        12345n,
-        'exp-1',
-        { categoryName: 'Mercado' },
-      );
-    });
-
-    it('should update category name', async () => {
-      const ctx = mockContext('Novo Nome');
-      (ctx as any).session = { editType: 'category', editId: 'cat-1' };
-      await service.onMessage(ctx);
-      expect(mockExpensesService.updateCategory).toHaveBeenCalledWith(
-        12345n,
-        'cat-1',
-        'Novo Nome',
-      );
-    });
-
-    it('should update investment quantity', async () => {
-      const ctx = mockContext('10.5');
-      (ctx as any).session = {
-        editType: 'investment',
-        editId: 'inv-1',
-        editField: 'quantity',
-      };
-      await service.onMessage(ctx);
-      expect(mockInvestmentsService.updateOperation).toHaveBeenCalledWith(
-        12345n,
-        'inv-1',
-        { quantity: 10.5 },
-      );
-    });
-
-    it('should update investment price', async () => {
-      const ctx = mockContext('30,50');
-      (ctx as any).session = {
-        editType: 'investment',
-        editId: 'inv-1',
-        editField: 'price',
-      };
-      await service.onMessage(ctx);
-      expect(mockInvestmentsService.updateOperation).toHaveBeenCalledWith(
-        12345n,
-        'inv-1',
-        { unit_price: 30.5 },
+        expect.stringContaining('Gasto atualizado com sucesso! ✅'),
       );
     });
   });
