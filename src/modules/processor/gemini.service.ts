@@ -26,32 +26,28 @@ export class GeminiService {
     this.genAI = new GoogleGenerativeAI(apiKey);
   }
 
-  async extractExpenseFromImage(
-    imageUrl: string,
+  async extractExpenseFromFile(
+    fileUrl: string,
+    mimeType: string,
     existingCategories: string[],
   ): Promise<ExtractedExpense[]> {
-    this.logger.log(`Extracting expense from image: ${imageUrl}`);
+    this.logger.log(
+      `Extracting expense from file: ${fileUrl} (Mime: ${mimeType})`,
+    );
 
-    let imageBase64: string;
-    let mimeType: string;
+    let fileBase64: string;
 
-    // 1. Download image with timeout
+    // 1. Download file with timeout
     try {
-      const response = await axios.get<ArrayBuffer>(imageUrl, {
+      const response = await axios.get<ArrayBuffer>(fileUrl, {
         responseType: 'arraybuffer',
         timeout: 10000, // 10 seconds timeout
         family: 4, // Force IPv4 to avoid IPv6 resolution issues in Docker
       });
-      const imageBuffer = Buffer.from(response.data);
-      imageBase64 = imageBuffer.toString('base64');
-
-      // Sanitização do MIME type: Telegram muitas vezes retorna application/octet-stream
-      const rawMimeType =
-        (response.headers['content-type'] as string) || 'image/jpeg';
-      mimeType =
-        rawMimeType === 'application/octet-stream' ? 'image/jpeg' : rawMimeType;
+      const fileBuffer = Buffer.from(response.data);
+      fileBase64 = fileBuffer.toString('base64');
     } catch (error) {
-      this.logger.error(`Failed to download image from ${imageUrl}:`, error);
+      this.logger.error(`Failed to download file from ${fileUrl}:`, error);
       throw new Error('Falha de rede ao baixar a imagem do Telegram.');
     }
 
@@ -66,7 +62,7 @@ export class GeminiService {
 
       const prompt = `
         Você é um assistente financeiro especializado em extração de dados de recibos e extratos bancários.
-        Sua tarefa é extrair TODOS os gastos (débitos/compras) da imagem fornecida.
+        Sua tarefa é extrair TODOS os gastos (débitos/compras) da imagem ou documento fornecido.
         
         Orientações:
         1. Identifique cada transação de saída (débito, compra, pagamento, pix enviado).
@@ -95,7 +91,7 @@ export class GeminiService {
         {
           inlineData: {
             mimeType,
-            data: imageBase64,
+            data: fileBase64,
           },
         },
       ]);

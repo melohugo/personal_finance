@@ -423,7 +423,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
 
       // Get file link from Telegram
       const fileLink = await this.bot.telegram.getFileLink(fileId);
-      const imageUrl = fileLink.toString();
+      const fileUrl = fileLink.toString();
 
       // Get user existing categories to help Gemini
       const categories = await this.expensesService.listCategories(telegramId);
@@ -431,7 +431,8 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
 
       // Add to processing queue
       await this.receiptQueue.add('process_receipt', {
-        imageUrl,
+        fileUrl,
+        fileMimeType: 'image/jpeg',
         telegramId: telegramId.toString(),
         existingCategories: categoryNames,
       });
@@ -441,6 +442,41 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       );
     } catch (error) {
       await this.handleError(ctx, error, 'processar foto');
+    }
+  }
+
+  @On('document')
+  async onDocument(@Ctx() ctx: Context) {
+    try {
+      if (!ctx.message || !('document' in ctx.message)) return;
+
+      const doc = ctx.message.document;
+      const telegramId = BigInt(ctx.from?.id || 0);
+
+      if (doc.mime_type !== 'application/pdf') {
+        return await ctx.reply(
+          '⚠️ Por favor, envie o extrato apenas em formato PDF ou uma foto nítida do recibo.',
+        );
+      }
+
+      const fileLink = await this.bot.telegram.getFileLink(doc.file_id);
+      const fileUrl = fileLink.toString();
+
+      const categories = await this.expensesService.listCategories(telegramId);
+      const categoryNames = categories.map((c) => c.name);
+
+      await this.receiptQueue.add('process_receipt', {
+        fileUrl,
+        fileMimeType: 'application/pdf',
+        telegramId: telegramId.toString(),
+        existingCategories: categoryNames,
+      });
+
+      await ctx.reply(
+        '📄 PDF recebido! Estou analisando com IA, um momento...',
+      );
+    } catch (error) {
+      await this.handleError(ctx, error, 'processar documento');
     }
   }
 

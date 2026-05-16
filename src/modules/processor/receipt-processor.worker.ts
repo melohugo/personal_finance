@@ -38,7 +38,8 @@ export class ReceiptProcessorWorker
   async process(
     job: Job<
       {
-        imageUrl: string;
+        fileUrl: string;
+        fileMimeType: string;
         telegramId: string;
         existingCategories: string[];
       },
@@ -51,19 +52,22 @@ export class ReceiptProcessorWorker
     count?: number;
     reason?: string;
   }> {
-    const { imageUrl, telegramId, existingCategories } = job.data;
-    this.logger.log(`Processing receipt for user ${telegramId}`);
+    const { fileUrl, fileMimeType, telegramId, existingCategories } = job.data;
+    this.logger.log(
+      `Processing receipt file for user ${telegramId} (${fileMimeType})`,
+    );
 
     try {
-      const extractedList = await this.geminiService.extractExpenseFromImage(
-        imageUrl,
+      const extractedList = await this.geminiService.extractExpenseFromFile(
+        fileUrl,
+        fileMimeType,
         existingCategories,
       );
 
       if (!extractedList || extractedList.length === 0) {
         await this.bot.telegram.sendMessage(
           Number(telegramId),
-          'ℹ️ Não consegui identificar nenhuma despesa clara nesta imagem. Por favor, tente uma foto mais nítida ou registre manualmente.',
+          'ℹ️ Não consegui identificar nenhuma despesa clara neste arquivo. Por favor, tente uma foto mais nítida ou registre manualmente.',
         );
         return { success: false, reason: 'no_expenses_found' };
       }
@@ -115,7 +119,7 @@ export class ReceiptProcessorWorker
       this.logger.error(`Error processing job ${job.id ?? 'unknown'}:`, error);
       await this.bot.telegram.sendMessage(
         Number(telegramId),
-        '❌ Desculpe, ocorreu um erro ao processar sua imagem com IA. Por favor, tente novamente ou registre manualmente.',
+        '❌ Desculpe, ocorreu um erro ao processar seu arquivo com IA. Por favor, tente novamente ou registre manualmente.',
       );
       throw error;
     }
