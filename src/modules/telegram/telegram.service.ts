@@ -14,6 +14,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import Redis from 'ioredis';
+import { randomUUID } from 'crypto';
 import {
   parseGastoCommand,
   parseListarCommand,
@@ -165,12 +166,46 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
+      const telegramId = BigInt(ctx.from?.id || 0);
       const messageText = ctx.message.text;
       const args = messageText.replace(/^\/gasto\s*/, '');
       const { amount, categoryName, date } = parseGastoCommand(args);
 
+      // Check for duplicate
+      const duplicate = await this.expensesService.findDuplicate(
+        telegramId,
+        amount,
+        date || new Date(),
+        categoryName,
+      );
+
+      if (duplicate) {
+        const pendingId = randomUUID();
+        await this.redis.set(
+          `dup_exp:${pendingId}`,
+          JSON.stringify({
+            telegramId: telegramId.toString(),
+            amount,
+            categoryName,
+            date,
+          }),
+          'EX',
+          3600,
+        );
+
+        return await ctx.reply(
+          `⚠️ Este ${categoryName} de R$ ${amount.toFixed(2)} já parece estar registrado. Deseja ignorar?`,
+          Markup.inlineKeyboard([
+            [
+              Markup.button.callback('Sim ✅', `dup_ign:${pendingId}`),
+              Markup.button.callback('Não ❌', `dup_sav:${pendingId}`),
+            ],
+          ]),
+        );
+      }
+
       await this.expensesService.createFromTelegram({
-        telegramId: BigInt(ctx.from?.id || 0),
+        telegramId,
         amount,
         categoryName,
         date,
@@ -497,23 +532,62 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       }
 
       const { expenses } = JSON.parse(cachedData);
+      let successCount = 0;
 
       for (const expense of expenses) {
         // Parse YYYY-MM-DD manually to avoid timezone shifts
         const [year, month, day] = expense.date.split('-').map(Number);
         const date = new Date(Date.UTC(year, month - 1, day));
 
-        await this.expensesService.createFromTelegram({
+        // Check for duplicate
+        const duplicate = await this.expensesService.findDuplicate(
           telegramId,
-          amount: expense.amount,
-          categoryName: expense.category,
+          expense.amount,
           date,
-        });
+          expense.category,
+        );
+
+        if (duplicate) {
+          const dupId = randomUUID();
+          await this.redis.set(
+            `dup_exp:${dupId}`,
+            JSON.stringify({
+              telegramId: telegramId.toString(),
+              amount: expense.amount,
+              categoryName: expense.category,
+              date: date.toISOString(),
+              description: expense.description,
+            }),
+            'EX',
+            3600,
+          );
+
+          const displayName = expense.description || expense.category;
+          await this.bot.telegram.sendMessage(
+            Number(telegramId),
+            `⚠️ Este ${displayName} de R$ ${expense.amount.toFixed(2)} já parece estar registrado. Deseja ignorar?`,
+            Markup.inlineKeyboard([
+              [
+                Markup.button.callback('Sim ✅', `dup_ign:${dupId}`),
+                Markup.button.callback('Não ❌', `dup_sav:${dupId}`),
+              ],
+            ]),
+          );
+        } else {
+          await this.expensesService.createFromTelegram({
+            telegramId,
+            amount: expense.amount,
+            categoryName: expense.category,
+            date,
+            description: expense.description,
+          });
+          successCount++;
+        }
       }
 
       await this.redis.del(redisKey);
       await ctx.editMessageText(
-        `✅ ${expenses.length} gastos registrados com sucesso via IA!`,
+        `✅ ${successCount} gastos registrados com sucesso via IA!`,
       );
     } catch (error) {
       await this.handleError(ctx, error, 'confirmar registro da IA');
@@ -529,6 +603,48 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
 
     await this.redis.del(redisKey);
     await ctx.editMessageText('Registro descartado ❌');
+    await ctx.answerCbQuery();
+  }
+
+  @Action(/^dup_ign:(.+)$/)
+  async onDuplicateIgnore(@Ctx() ctx: ExtendedContext) {
+    if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
+    const dupId = ctx.match[1];
+    const redisKey = `dup_exp:${dupId}`;
+
+    await this.redis.del(redisKey);
+    await ctx.editMessageText('Gasto ignorado ❌');
+    await ctx.answerCbQuery();
+  }
+
+  @Action(/^dup_sav:(.+)$/)
+  async onDuplicateSave(@Ctx() ctx: ExtendedContext) {
+    if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
+    const dupId = ctx.match[1];
+    const redisKey = `dup_exp:${dupId}`;
+
+    try {
+      const cachedData = await this.redis.get(redisKey);
+      if (!cachedData) {
+        return await ctx.editMessageText(
+          '❌ Esta pendência expirou ou já foi processada.',
+        );
+      }
+
+      const expense = JSON.parse(cachedData);
+      await this.expensesService.createFromTelegram({
+        telegramId: BigInt(expense.telegramId),
+        amount: expense.amount,
+        categoryName: expense.categoryName,
+        date: expense.date ? new Date(expense.date) : undefined,
+        description: expense.description,
+      });
+
+      await this.redis.del(redisKey);
+      await ctx.editMessageText('Gasto registrado com sucesso ✅');
+    } catch (error) {
+      await this.handleError(ctx, error, 'salvar gasto duplicado');
+    }
     await ctx.answerCbQuery();
   }
 

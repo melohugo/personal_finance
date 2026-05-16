@@ -8,6 +8,7 @@ export interface CreateExpenseFromTelegramDto {
   amount: number;
   categoryName: string;
   date?: Date;
+  description?: string;
 }
 
 export interface ListExpensesDto {
@@ -30,7 +31,13 @@ export class ExpensesService {
   constructor(private prisma: PrismaService) {}
 
   async createFromTelegram(dto: CreateExpenseFromTelegramDto) {
-    const { telegramId, amount, categoryName: rawCategoryName, date } = dto;
+    const {
+      telegramId,
+      amount,
+      categoryName: rawCategoryName,
+      date,
+      description,
+    } = dto;
 
     if (amount <= 0) {
       throw new Error('Amount must be greater than zero');
@@ -42,6 +49,7 @@ export class ExpensesService {
       data: {
         amount: amount,
         date: date || new Date(),
+        description: description,
         user: {
           connect: { telegram_id: telegramId },
         },
@@ -58,6 +66,52 @@ export class ExpensesService {
               telegram_id: telegramId,
             },
           },
+        },
+      },
+    });
+  }
+
+  async findDuplicate(
+    telegramId: bigint,
+    amount: number,
+    date: Date,
+    categoryName: string,
+  ) {
+    const normalizedCategory = normalizeCategoryName(categoryName);
+
+    // Calculate start and end of the given date in UTC
+    const startOfDay = new Date(
+      Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        0,
+        0,
+        0,
+      ),
+    );
+    const endOfDay = new Date(
+      Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
+
+    return await this.prisma.expense.findFirst({
+      where: {
+        telegram_id: telegramId,
+        amount: amount,
+        date: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+        category: {
+          name: normalizedCategory,
         },
       },
     });
