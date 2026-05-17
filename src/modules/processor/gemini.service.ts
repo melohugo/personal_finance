@@ -28,21 +28,38 @@ export class GeminiService {
       `Extracting expense from file: ${fileUrl} (Mime: ${mimeType})`,
     );
 
-    let fileBase64: string;
+    let fileBuffer: Buffer | null = null;
+    const maxRetries = 3;
+    const timeout = 15000; // 15 seconds
 
-    // 1. Download file with timeout
-    try {
-      const response = await axios.get<ArrayBuffer>(fileUrl, {
-        responseType: 'arraybuffer',
-        timeout: 10000, // 10 seconds timeout
-        family: 4, // Force IPv4 to avoid IPv6 resolution issues in Docker
-      });
-      const fileBuffer = Buffer.from(response.data);
-      fileBase64 = fileBuffer.toString('base64');
-    } catch (error) {
-      this.logger.error(`Failed to download file from ${fileUrl}:`, error);
-      throw new Error('Falha de rede ao baixar a imagem do Telegram.');
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        const response = await axios.get<ArrayBuffer>(fileUrl, {
+          responseType: 'arraybuffer',
+          timeout,
+          family: 4,
+        });
+        fileBuffer = Buffer.from(response.data);
+        break;
+      } catch (error) {
+        this.logger.warn(
+          `Attempt ${i + 1} failed to download file from ${fileUrl}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
+        if (i === maxRetries - 1) {
+          this.logger.error(
+            `Failed to download file after ${maxRetries} attempts.`,
+          );
+          throw new Error('Falha de rede ao baixar a imagem do Telegram.');
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // 1s delay
+      }
     }
+
+    if (!fileBuffer) {
+      throw new Error('Falha ao processar o arquivo baixado.');
+    }
+
+    fileBase64 = fileBuffer.toString('base64');
 
     // 2. Call Gemini API
     try {
