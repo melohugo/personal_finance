@@ -29,6 +29,7 @@ export class GeminiService {
     );
 
     let fileBuffer: Buffer | null = null;
+    let fileBase64: string;
     const maxRetries = 3;
     const timeout = 15000; // 15 seconds
 
