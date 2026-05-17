@@ -43,6 +43,7 @@ export class ReceiptProcessorWorker
         fileMimeType: string;
         telegramId: string;
         existingCategories: string[];
+        recentExpenses: any[];
       },
       unknown,
       string
@@ -53,7 +54,13 @@ export class ReceiptProcessorWorker
     count?: number;
     reason?: string;
   }> {
-    const { fileUrl, fileMimeType, telegramId, existingCategories } = job.data;
+    const {
+      fileUrl,
+      fileMimeType,
+      telegramId,
+      existingCategories,
+      recentExpenses,
+    } = job.data;
     this.logger.log(
       `Processing receipt file for user ${telegramId} (${fileMimeType})`,
     );
@@ -63,6 +70,7 @@ export class ReceiptProcessorWorker
         fileUrl,
         fileMimeType,
         existingCategories,
+        recentExpenses,
       );
 
       if (!extractedList || extractedList.length === 0) {

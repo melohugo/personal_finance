@@ -23,13 +23,13 @@ export class GeminiService {
     fileUrl: string,
     mimeType: string,
     existingCategories: string[],
+    recentExpenses: any[] = [],
   ): Promise<ExtractedExpense[]> {
     this.logger.log(
       `Extracting expense from file: ${fileUrl} (Mime: ${mimeType})`,
     );
 
     let fileBuffer: Buffer | null = null;
-    let fileBase64: string;
     const maxRetries = 3;
     const timeout = 15000; // 15 seconds
 
@@ -60,7 +60,7 @@ export class GeminiService {
       throw new Error('Falha ao processar o arquivo baixado.');
     }
 
-    fileBase64 = fileBuffer.toString('base64');
+    const fileBase64 = fileBuffer.toString('base64');
 
     // 2. Call Gemini API
     try {
@@ -70,6 +70,11 @@ export class GeminiService {
           responseMimeType: 'application/json',
         },
       });
+
+      const historyContext =
+        recentExpenses.length > 0
+          ? `Aqui estão os últimos gastos do usuário para você entender o padrão de categorização e nomes:\n${JSON.stringify(recentExpenses, null, 2)}\nUse esse histórico para manter a consistência nas novas categorias.`
+          : '';
 
       const prompt = `
         Você é um assistente financeiro especializado em extração de dados de recibos e extratos bancários.
@@ -81,9 +86,10 @@ export class GeminiService {
         3. Para cada gasto, extraia o valor total, a data e uma breve descrição.
         4. Categorize cada despesa. 
         5. Lista de categorias EXISTENTES do usuário: [${existingCategories.join(', ')}].
-        6. Se a despesa se encaixar em uma existente, use-a EXATAMENTE como escrita.
-        7. Se não servir, sugira uma NOVA categoria concisa em Português.
-        8. Retorne APENAS um ARRAY de objetos JSON com a seguinte estrutura:
+        6. ${historyContext}
+        7. Se a despesa se encaixar em uma existente ou sugerida pelo histórico, use-a EXATAMENTE como escrita.
+        8. Se não servir, sugira uma NOVA categoria concisa em Português.
+        9. Retorne APENAS um ARRAY de objetos JSON com a seguinte estrutura:
            [
              {
                "amount": number,
@@ -93,8 +99,8 @@ export class GeminiService {
                "isNewCategory": boolean
              }
            ]
-        9. Se não encontrar uma data para um item, use a data atual: ${new Date().toISOString().split('T')[0]}.
-        10. O idioma da descrição e das novas categorias deve ser Português.
+        10. Se não encontrar uma data para um item, use a data atual: ${new Date().toISOString().split('T')[0]}.
+        11. O idioma da descrição e das novas categorias deve ser Português.
       `;
 
       const result = await model.generateContent([

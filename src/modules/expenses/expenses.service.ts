@@ -71,14 +71,7 @@ export class ExpensesService {
     });
   }
 
-  async findDuplicate(
-    telegramId: bigint,
-    amount: number,
-    date: Date,
-    categoryName: string,
-  ) {
-    const normalizedCategory = normalizeCategoryName(categoryName);
-
+  async findDuplicate(telegramId: bigint, amount: number, date: Date) {
     // Calculate start and end of the given date in UTC
     const startOfDay = new Date(
       Date.UTC(
@@ -110,11 +103,24 @@ export class ExpensesService {
           gte: startOfDay,
           lte: endOfDay,
         },
-        category: {
-          name: normalizedCategory,
-        },
       },
     });
+  }
+
+  async getRecentExpenses(telegramId: bigint, limit = 15) {
+    const expenses = await this.prisma.expense.findMany({
+      where: { telegram_id: telegramId },
+      orderBy: { date: 'desc' },
+      take: limit,
+      include: { category: true },
+    });
+
+    return expenses.map((exp) => ({
+      amount: Number(exp.amount),
+      description: exp.description || '',
+      date: exp.date,
+      category: exp.category.name,
+    }));
   }
 
   async updateExpense(

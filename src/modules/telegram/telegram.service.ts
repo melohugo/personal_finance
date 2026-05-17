@@ -179,7 +179,6 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         telegramId,
         amount,
         date || new Date(),
-        categoryName,
       );
 
       if (duplicate) {
@@ -197,11 +196,14 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         );
 
         return await ctx.reply(
-          `⚠️ Este ${categoryName} de R$ ${amount.toFixed(2)} já parece estar registrado. Deseja ignorar?`,
+          `⚠️ Este gasto de R$ ${amount.toFixed(2)} em ${categoryName} já parece estar registrado. O que deseja fazer?`,
           Markup.inlineKeyboard([
             [
-              Markup.button.callback('Sim ✅', `dup_ign:${pendingId}`),
-              Markup.button.callback('Não ❌', `dup_sav:${pendingId}`),
+              Markup.button.callback('Ignorar ❌', `dup_ign:${pendingId}`),
+              Markup.button.callback(
+                'Salvar Mesmo Assim ✅',
+                `dup_sav:${pendingId}`,
+              ),
             ],
           ]),
         );
@@ -524,8 +526,11 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       const fileLink = await this.bot.telegram.getFileLink(fileId);
       const fileUrl = fileLink.toString();
 
-      // Get user existing categories to help Gemini
-      const categories = await this.expensesService.listCategories(telegramId);
+      // Get user existing categories and recent expenses to help Gemini
+      const [categories, recentExpenses] = await Promise.all([
+        this.expensesService.listCategories(telegramId),
+        this.expensesService.getRecentExpenses(telegramId, 15),
+      ]);
       const categoryNames = categories.map((c) => c.name);
 
       // Add to processing queue
@@ -534,6 +539,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         fileMimeType: 'image/jpeg',
         telegramId: telegramId.toString(),
         existingCategories: categoryNames,
+        recentExpenses,
       });
 
       await ctx.reply(
@@ -561,7 +567,10 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       const fileLink = await this.bot.telegram.getFileLink(doc.file_id);
       const fileUrl = fileLink.toString();
 
-      const categories = await this.expensesService.listCategories(telegramId);
+      const [categories, recentExpenses] = await Promise.all([
+        this.expensesService.listCategories(telegramId),
+        this.expensesService.getRecentExpenses(telegramId, 15),
+      ]);
       const categoryNames = categories.map((c) => c.name);
 
       await this.receiptQueue.add('process_receipt', {
@@ -569,6 +578,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         fileMimeType: 'application/pdf',
         telegramId: telegramId.toString(),
         existingCategories: categoryNames,
+        recentExpenses,
       });
 
       await ctx.reply(
@@ -610,9 +620,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
           telegramId,
           expense.amount,
           date,
-          expense.category,
         );
-
         if (duplicate) {
           const dupId = randomUUID();
           await this.redis.set(
@@ -628,16 +636,18 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
             3600,
           );
 
-          const displayName = expense.description || expense.category;
           // Add delay to prevent Telegram Rate Limit when sending multiple warnings
           await new Promise((resolve) => setTimeout(resolve, 500));
           await this.bot.telegram.sendMessage(
             Number(telegramId),
-            `⚠️ Este ${displayName} de R$ ${expense.amount.toFixed(2)} já parece estar registrado. Deseja ignorar?`,
+            `⚠️ Este gasto de R$ ${expense.amount.toFixed(2)} em ${expense.category} já parece estar registrado. O que deseja fazer?`,
             Markup.inlineKeyboard([
               [
-                Markup.button.callback('Sim ✅', `dup_ign:${dupId}`),
-                Markup.button.callback('Não ❌', `dup_sav:${dupId}`),
+                Markup.button.callback('Ignorar ❌', `dup_ign:${dupId}`),
+                Markup.button.callback(
+                  'Salvar Mesmo Assim ✅',
+                  `dup_sav:${dupId}`,
+                ),
               ],
             ]),
           );
