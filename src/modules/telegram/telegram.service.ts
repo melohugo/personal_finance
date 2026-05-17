@@ -20,7 +20,9 @@ import {
   parseListarCommand,
   parseDeletarCommand,
   parseEditarCommand,
+  buildAiConfirmationMessage,
 } from './telegram-parser.utils';
+import { ExtractedExpense } from '../../common/schemas/expense.schema';
 import {
   ExpensesService,
   UpdateExpenseDto,
@@ -32,9 +34,10 @@ import {
 } from '../investments/investments.service';
 
 interface SessionData {
-  editType?: 'expense' | 'category' | 'investment';
+  editType?: 'expense' | 'category' | 'investment' | 'ai_pending';
   editId?: string;
   editField?: string;
+  editItemIndex?: number;
 }
 
 interface MyContext extends Context {
@@ -447,6 +450,67 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  @Action(/^edit_ai:(.+):(\d+)$/)
+  async onEditAiExpense(@Ctx() ctx: ExtendedContext) {
+    if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
+    const pendingId = ctx.match[1];
+    const itemIndex = parseInt(ctx.match[2], 10);
+
+    ctx.session.editType = 'ai_pending';
+    ctx.session.editId = pendingId;
+    ctx.session.editItemIndex = itemIndex;
+
+    await ctx.reply(
+      'O que deseja alterar neste item extraído pela IA?',
+      Markup.inlineKeyboard([
+        [
+          Markup.button.callback(
+            'Data 📅',
+            `edit_ai_field:${pendingId}:${itemIndex}:date`,
+          ),
+          Markup.button.callback(
+            'Valor 💰',
+            `edit_ai_field:${pendingId}:${itemIndex}:amount`,
+          ),
+        ],
+        [
+          Markup.button.callback(
+            'Categoria 📂',
+            `edit_ai_field:${pendingId}:${itemIndex}:category`,
+          ),
+          Markup.button.callback(
+            'Descrição 📝',
+            `edit_ai_field:${pendingId}:${itemIndex}:description`,
+          ),
+        ],
+      ]),
+    );
+    await ctx.answerCbQuery();
+  }
+
+  @Action(/^edit_ai_field:(.+):(\d+):(.+)$/)
+  async onEditAiField(@Ctx() ctx: ExtendedContext) {
+    if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
+    const pendingId = ctx.match[1];
+    const itemIndex = parseInt(ctx.match[2], 10);
+    const field = ctx.match[3];
+
+    ctx.session.editType = 'ai_pending';
+    ctx.session.editId = pendingId;
+    ctx.session.editItemIndex = itemIndex;
+    ctx.session.editField = field;
+
+    const fieldNames: Record<string, string> = {
+      date: 'a nova data (DD/MM/AAAA)',
+      amount: 'o novo valor (ex: 50.00)',
+      category: 'a nova categoria',
+      description: 'a nova descrição',
+    };
+
+    await ctx.reply(`Envie ${fieldNames[field] || 'o novo valor'}:`);
+    await ctx.answerCbQuery();
+  }
+
   @On('photo')
   async onPhoto(@Ctx() ctx: Context) {
     try {
@@ -531,7 +595,9 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         );
       }
 
-      const { expenses } = JSON.parse(cachedData);
+      const { expenses } = JSON.parse(cachedData) as {
+        expenses: ExtractedExpense[];
+      };
       let successCount = 0;
 
       for (const expense of expenses) {
@@ -836,12 +902,68 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         updateData,
       );
       await ctx.reply('Operação de investimento atualizada com sucesso! ✅');
+    } else if (editType === 'ai_pending') {
+      const redisKey = `pending_expense:${editId}`;
+      const cachedData = await this.redis.get(redisKey);
+      if (!cachedData) {
+        await ctx.reply('❌ Esta pendência expirou ou já foi processada.');
+        ctx.session.editId = undefined;
+        return;
+      }
+
+      const data = JSON.parse(cachedData) as {
+        expenses: ExtractedExpense[];
+        telegramId: string;
+      };
+      const expense = data.expenses[ctx.session.editItemIndex!];
+
+      if (editField === 'amount') {
+        const amount = parseFloat(text.replace(',', '.'));
+        if (isNaN(amount)) throw new Error('Valor inválido.');
+        expense.amount = amount;
+      } else if (editField === 'description') {
+        expense.description = text;
+      } else if (editField === 'category') {
+        expense.category = text;
+        expense.isNewCategory = true;
+      } else if (editField === 'date') {
+        const parts = text.split('/');
+        let year = new Date().getFullYear();
+        let month = new Date().getMonth();
+        let day = new Date().getDate();
+
+        if (parts.length >= 2) {
+          day = parseInt(parts[0], 10);
+          month = parseInt(parts[1], 10) - 1;
+        }
+        if (parts.length === 3) {
+          year = parseInt(parts[2], 10);
+          if (year < 100) year += 2000;
+        }
+
+        const date = new Date(year, month, day);
+        if (isNaN(date.getTime())) throw new Error('Data inválida.');
+        expense.date = date.toISOString().split('T')[0];
+      }
+
+      data.expenses[ctx.session.editItemIndex!] = expense;
+      await this.redis.set(redisKey, JSON.stringify(data), 'EX', 3600);
+
+      const { text: updatedText, keyboard } = buildAiConfirmationMessage(
+        data.expenses,
+        editId!,
+      );
+      await ctx.reply(updatedText, {
+        parse_mode: 'Markdown',
+        ...keyboard,
+      });
     }
 
     // Limpar sessão após edição
     ctx.session.editId = undefined;
     ctx.session.editType = undefined;
     ctx.session.editField = undefined;
+    ctx.session.editItemIndex = undefined;
   }
 
   private async handleError(ctx: Context, error: unknown, action: string) {
