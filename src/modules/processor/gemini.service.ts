@@ -2,14 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
-
-export interface ExtractedExpense {
-  amount: number;
-  category: string;
-  date: string; // YYYY-MM-DD
-  description: string;
-  isNewCategory: boolean;
-}
+import { ExtractedExpense } from '../../common/schemas/expense.schema';
 
 @Injectable()
 export class GeminiService {
