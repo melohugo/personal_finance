@@ -3,10 +3,11 @@ import { Job } from 'bullmq';
 import { Logger, OnModuleDestroy } from '@nestjs/common';
 import { GeminiService } from './gemini.service';
 import { InjectBot } from 'nestjs-telegraf';
-import { Context, Markup, Telegraf } from 'telegraf';
+import { Context, Telegraf } from 'telegraf';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { randomUUID } from 'crypto';
+import { buildAiConfirmationMessage } from '../telegram/telegram-parser.utils';
 
 @Processor('receipt_processing')
 export class ReceiptProcessorWorker
@@ -83,35 +84,14 @@ export class ReceiptProcessorWorker
         3600,
       );
 
-      const totalAmount = extractedList.reduce(
-        (sum, exp) => sum + exp.amount,
-        0,
+      const { text, keyboard } = buildAiConfirmationMessage(
+        extractedList,
+        pendingId,
       );
 
-      let message = `✅ *${extractedList.length} Despesas Identificadas!*\n\n`;
-
-      extractedList.forEach((exp, index) => {
-        const date = new Date(exp.date).toLocaleDateString('pt-BR', {
-          timeZone: 'UTC',
-        });
-        message += `${index + 1}. 📅 ${date} | 💰 R$ ${exp.amount.toFixed(2)}\n`;
-        message += `    📂 ${exp.category}${exp.isNewCategory ? ' ✨' : ''} | 📝 ${exp.description || 'N/A'}\n\n`;
-      });
-
-      message += `📊 *Total Geral: R$ ${totalAmount.toFixed(2)}*\n\n`;
-      message += `Deseja registrar todos estes gastos de uma vez?`;
-
-      await this.bot.telegram.sendMessage(Number(telegramId), message, {
+      await this.bot.telegram.sendMessage(Number(telegramId), text, {
         parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [
-            Markup.button.callback(
-              'Confirmar Todos ✅',
-              `conf_ai:${pendingId}`,
-            ),
-            Markup.button.callback('Descartar ❌', `canc_ai:${pendingId}`),
-          ],
-        ]),
+        ...keyboard,
       });
 
       return { success: true, pendingId, count: extractedList.length };
