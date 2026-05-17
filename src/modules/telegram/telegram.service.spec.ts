@@ -365,6 +365,45 @@ describe('TelegramService', () => {
     });
   });
 
+  describe('AI Edit Action Flow', () => {
+    it('should show field selection menu when an AI item is selected for editing', async () => {
+      const ctx = mockContext('');
+      (ctx as any).match = ['edit_ai:pending-123:0', 'pending-123', '0'];
+
+      await service.onEditAiExpense(ctx as any);
+
+      expect((ctx as any).session.editType).toBe('ai_pending');
+      expect((ctx as any).session.editId).toBe('pending-123');
+      expect((ctx as any).session.editItemIndex).toBe(0);
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'O que deseja alterar neste item extraído pela IA?',
+        ),
+        expect.any(Object),
+      );
+    });
+
+    it('should store field selection in session on onEditAiField', async () => {
+      const ctx = mockContext('');
+      (ctx as any).match = [
+        'edit_ai_field:pending-123:0:amount',
+        'pending-123',
+        '0',
+        'amount',
+      ];
+
+      await service.onEditAiField(ctx as any);
+
+      expect((ctx as any).session.editType).toBe('ai_pending');
+      expect((ctx as any).session.editId).toBe('pending-123');
+      expect((ctx as any).session.editItemIndex).toBe(0);
+      expect((ctx as any).session.editField).toBe('amount');
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Envie o novo valor'),
+      );
+    });
+  });
+
   describe('onPhoto', () => {
     it('should add image processing task to the queue', async () => {
       const ctx = mockContext('');
@@ -576,6 +615,62 @@ describe('TelegramService', () => {
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('Gasto atualizado com sucesso! ✅'),
       );
+    });
+
+    it('should update ai pending expense in Redis and send updated message', async () => {
+      const ctx = mockContext('75.00');
+      (ctx as any).session = {
+        editType: 'ai_pending',
+        editId: 'pending-123',
+        editItemIndex: 0,
+        editField: 'amount',
+      };
+
+      const mockData = {
+        telegramId: '12345',
+        expenses: [
+          {
+            amount: 100,
+            category: 'Saúde',
+            date: '2026-05-15',
+            description: 'Farmácia',
+            isNewCategory: false,
+          },
+        ],
+      };
+
+      service['redis'].get = jest
+        .fn()
+        .mockResolvedValue(JSON.stringify(mockData));
+      service['redis'].set = jest.fn().mockResolvedValue('OK');
+
+      await service.onMessage(ctx as any);
+
+      // Verify Redis updated
+      const expectedUpdatedData = {
+        ...mockData,
+        expenses: [
+          {
+            ...mockData.expenses[0],
+            amount: 75,
+          },
+        ],
+      };
+      expect(service['redis'].set).toHaveBeenCalledWith(
+        'pending_expense:pending-123',
+        JSON.stringify(expectedUpdatedData),
+        'EX',
+        3600,
+      );
+
+      // Verify updated message sent
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('R$ 75.00'),
+        expect.any(Object),
+      );
+
+      // Session cleared
+      expect((ctx as any).session.editId).toBeUndefined();
     });
   });
 });
