@@ -110,12 +110,22 @@ describe('ReceiptProcessorWorker', () => {
         expect.objectContaining({
           parse_mode: 'Markdown',
           reply_markup: expect.objectContaining({
-            inline_keyboard: expect.arrayContaining([
-              expect.arrayContaining([
+            inline_keyboard: [
+              [
+                expect.objectContaining({
+                  text: '✏️ Editar 1',
+                  callback_data: 'edit_ai:uuid-123:0',
+                }),
+                expect.objectContaining({
+                  text: '✏️ Editar 2',
+                  callback_data: 'edit_ai:uuid-123:1',
+                }),
+              ],
+              [
                 expect.objectContaining({ callback_data: 'conf_ai:uuid-123' }),
                 expect.objectContaining({ callback_data: 'canc_ai:uuid-123' }),
-              ]),
-            ]),
+              ],
+            ],
           }),
         }),
       );
