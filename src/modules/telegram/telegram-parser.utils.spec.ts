@@ -3,9 +3,52 @@ import {
   parseListarCommand,
   parseDeletarCommand,
   parseEditarCommand,
+  buildAiConfirmationMessage,
 } from './telegram-parser.utils';
 
 describe('TelegramParserUtils', () => {
+  describe('buildAiConfirmationMessage', () => {
+    it('should format the message and generate buttons correctly', () => {
+      const expenses = [
+        {
+          amount: 50.5,
+          category: 'Alimentação',
+          date: '2026-05-20',
+          description: 'Almoço',
+          isNewCategory: false,
+        },
+        {
+          amount: 100,
+          category: 'Transporte',
+          date: '2026-05-21',
+          description: 'Gasolina',
+          isNewCategory: true,
+        },
+      ];
+      const pendingId = 'test-id';
+      const result = buildAiConfirmationMessage(expenses, pendingId);
+
+      expect(result.text).toContain('✅ *2 Despesas Identificadas!*');
+      expect(result.text).toContain('1. 📅 20/05/2026 | 💰 R$ 50.50');
+      expect(result.text).toContain('2. 📅 21/05/2026 | 💰 R$ 100.00');
+      expect(result.text).toContain('Transporte ✨'); // New category indicator
+      expect(result.text).toContain('📊 *Total Geral: R$ 150.50*');
+
+      const buttons = result.keyboard.reply_markup.inline_keyboard;
+      // Row 1: Edit buttons
+      expect(buttons[0][0].text).toBe('✏️ Editar 1');
+      expect(buttons[0][0].callback_data).toBe('edit_ai:test-id:0');
+      expect(buttons[0][1].text).toBe('✏️ Editar 2');
+      expect(buttons[0][1].callback_data).toBe('edit_ai:test-id:1');
+
+      // Row 2: Confirm/Cancel buttons
+      expect(buttons[1][0].text).toBe('Confirmar Todos ✅');
+      expect(buttons[1][0].callback_data).toBe('conf_ai:test-id');
+      expect(buttons[1][1].text).toBe('Descartar ❌');
+      expect(buttons[1][1].callback_data).toBe('canc_ai:test-id');
+    });
+  });
+
   describe('parseGastoCommand', () => {
     it('should parse valid command with amount and category', () => {
       const result = parseGastoCommand('50.5 Alimentação');
