@@ -629,6 +629,8 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
           );
 
           const displayName = expense.description || expense.category;
+          // Add delay to prevent Telegram Rate Limit when sending multiple warnings
+          await new Promise((resolve) => setTimeout(resolve, 500));
           await this.bot.telegram.sendMessage(
             Number(telegramId),
             `⚠️ Este ${displayName} de R$ ${expense.amount.toFixed(2)} já parece estar registrado. Deseja ignorar?`,
