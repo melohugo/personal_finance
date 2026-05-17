@@ -1,3 +1,6 @@
+import { Markup } from 'telegraf';
+import { ExtractedExpense } from '../../common/schemas/expense.schema';
+
 export function normalizeCategoryName(name: string): string {
   return name
     .trim()
@@ -285,4 +288,47 @@ export function parseEditarCommand(args: string): ListarCommandResult {
   );
 
   return { type, range: { start, end } };
+}
+
+export function buildAiConfirmationMessage(
+  expenses: ExtractedExpense[],
+  pendingId: string,
+) {
+  const totalAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+  let text = `✅ *${expenses.length} Despesas Identificadas!*\n\n`;
+
+  expenses.forEach((exp, index) => {
+    const [year, month, day] = exp.date.split('-').map(Number);
+    const dateStr = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+    text += `${index + 1}. 📅 ${dateStr} | 💰 R$ ${exp.amount.toFixed(2)}\n`;
+    text += `    📂 ${exp.category}${exp.isNewCategory ? ' ✨' : ''} | 📝 ${exp.description || 'N/A'}\n\n`;
+  });
+
+  text += `📊 *Total Geral: R$ ${totalAmount.toFixed(2)}*\n\n`;
+  text += `Deseja registrar todos estes gastos de uma vez?`;
+
+  const editButtons = expenses.map((_, index) =>
+    Markup.button.callback(
+      `✏️ Editar ${index + 1}`,
+      `edit_ai:${pendingId}:${index}`,
+    ),
+  );
+
+  // Group edit buttons in rows of 2
+  const rows: any[][] = [];
+  for (let i = 0; i < editButtons.length; i += 2) {
+    rows.push(editButtons.slice(i, i + 2));
+  }
+
+  // Add Confirm/Cancel row
+  rows.push([
+    Markup.button.callback('Confirmar Todos ✅', `conf_ai:${pendingId}`),
+    Markup.button.callback('Descartar ❌', `canc_ai:${pendingId}`),
+  ]);
+
+  return {
+    text,
+    keyboard: Markup.inlineKeyboard(rows),
+  };
 }
