@@ -94,7 +94,7 @@ describe('GeminiService', () => {
       ]);
       expect(mockedAxios.get).toHaveBeenCalledWith(imageUrl, {
         responseType: 'arraybuffer',
-        timeout: 10000,
+        timeout: 15000,
         family: 4,
       });
       // Verify that the explicitly passed mimeType was used, ignoring the header
@@ -103,6 +103,42 @@ describe('GeminiService', () => {
           model: 'gemini-2.5-flash',
         }),
       );
+    });
+
+    it('should retry downloading if it fails and succeed on second attempt', async () => {
+      const imageUrl = 'https://example.com/retry.jpg';
+
+      // First attempt fails, second succeeds
+      mockedAxios.get
+        .mockRejectedValueOnce(new Error('Timeout'))
+        .mockResolvedValueOnce({
+          data: Buffer.from('fake_image_data'),
+          headers: { 'content-type': 'image/jpeg' },
+        });
+
+      mockGenerateContent.mockResolvedValue({
+        response: {
+          text: () =>
+            JSON.stringify([
+              {
+                amount: 10,
+                category: 'Test',
+                date: '2026-01-01',
+                description: 'desc',
+                isNewCategory: false,
+              },
+            ]),
+        },
+      });
+
+      const result = await service.extractExpenseFromFile(
+        imageUrl,
+        'image/jpeg',
+        [],
+      );
+
+      expect(result[0].amount).toBe(10);
+      expect(mockedAxios.get).toHaveBeenCalledTimes(2);
     });
 
     it('should extract data from a PDF file', async () => {
@@ -144,12 +180,14 @@ describe('GeminiService', () => {
       );
     });
 
-    it('should throw error when image download fails', async () => {
+    it('should throw error when image download fails after all retries', async () => {
       mockedAxios.get.mockRejectedValue(new Error('Download failed'));
 
       await expect(
         service.extractExpenseFromFile('url', 'image/jpeg', []),
       ).rejects.toThrow('Falha de rede ao baixar a imagem do Telegram.');
+
+      expect(mockedAxios.get).toHaveBeenCalledTimes(3);
     });
 
     it('should throw error when Gemini API fails', async () => {
