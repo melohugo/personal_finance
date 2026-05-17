@@ -52,8 +52,8 @@ describe('TelegramService', () => {
     updateExpense: jest.fn(),
     updateCategory: jest.fn(),
     findDuplicate: jest.fn(),
+    getRecentExpenses: jest.fn(),
   };
-
   const mockUsersService = {
     getOrCreateUser: jest.fn(),
   };
@@ -171,7 +171,9 @@ describe('TelegramService', () => {
         3600,
       );
       expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('já parece estar registrado. Deseja ignorar?'),
+        expect.stringContaining(
+          'já parece estar registrado. O que deseja fazer?',
+        ),
         expect.any(Object),
       );
     });
@@ -405,21 +407,29 @@ describe('TelegramService', () => {
   });
 
   describe('onPhoto', () => {
-    it('should add image processing task to the queue', async () => {
+    it('should add image processing task to the queue with recent expenses', async () => {
       const ctx = mockContext('');
       (ctx.message as any).photo = [{ file_id: 'photo_id' }];
       mockExpensesService.listCategories.mockResolvedValue([
         { name: 'Comida' },
       ]);
+      mockExpensesService.getRecentExpenses.mockResolvedValue([
+        { amount: 10, category: 'Food', description: 'desc', date: new Date() },
+      ]);
 
       await service.onPhoto(ctx);
 
+      expect(mockExpensesService.getRecentExpenses).toHaveBeenCalledWith(
+        12345n,
+        15,
+      );
       expect(mockBot.telegram.getFileLink).toHaveBeenCalledWith('photo_id');
       expect(mockQueue.add).toHaveBeenCalledWith('process_receipt', {
         fileUrl: 'https://api.telegram.org/file/bot/123',
         fileMimeType: 'image/jpeg',
         telegramId: '12345',
         existingCategories: ['Comida'],
+        recentExpenses: expect.any(Array),
       });
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('Imagem recebida!'),
@@ -428,13 +438,14 @@ describe('TelegramService', () => {
   });
 
   describe('onDocument', () => {
-    it('should add PDF document task to the queue', async () => {
+    it('should add PDF document task to the queue with recent expenses', async () => {
       const ctx = mockContext('');
       (ctx.message as any).document = {
         file_id: 'pdf_id',
         mime_type: 'application/pdf',
       };
       mockExpensesService.listCategories.mockResolvedValue([]);
+      mockExpensesService.getRecentExpenses.mockResolvedValue([]);
 
       await service.onDocument(ctx);
 
@@ -444,6 +455,7 @@ describe('TelegramService', () => {
         fileMimeType: 'application/pdf',
         telegramId: '12345',
         existingCategories: [],
+        recentExpenses: expect.any(Array),
       });
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('PDF recebido!'),
@@ -508,7 +520,7 @@ describe('TelegramService', () => {
       expect(mockBot.telegram.sendMessage).toHaveBeenCalledWith(
         12345,
         expect.stringContaining(
-          'Mercado de R$ 50.00 já parece estar registrado',
+          'gasto de R$ 50.00 em Alimentação já parece estar registrado',
         ),
         expect.any(Object),
       );

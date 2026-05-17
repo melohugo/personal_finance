@@ -62,6 +62,9 @@ describe('ReceiptProcessorWorker', () => {
       fileMimeType: 'image/jpeg',
       telegramId: '123456',
       existingCategories: ['Food', 'Transport'],
+      recentExpenses: [
+        { amount: 10, category: 'Food', description: 'desc', date: new Date() },
+      ],
     };
     const job = { data: jobData, id: '1' } as Job<any, any, string>;
 
@@ -93,6 +96,7 @@ describe('ReceiptProcessorWorker', () => {
         jobData.fileUrl,
         jobData.fileMimeType,
         jobData.existingCategories,
+        jobData.recentExpenses,
       );
 
       // Verify Redis storage

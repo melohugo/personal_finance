@@ -132,19 +132,14 @@ describe('ExpensesService', () => {
   describe('findDuplicate', () => {
     const telegramId = 123456789n;
 
-    it('should return an expense if a duplicate exists on the same day', async () => {
+    it('should return an expense if a duplicate exists on the same day (ignoring category)', async () => {
       const date = new Date('2026-05-15T12:00:00Z');
       const start = new Date(Date.UTC(2026, 4, 15, 0, 0, 0));
       const end = new Date(Date.UTC(2026, 4, 15, 23, 59, 59, 999));
 
       mockPrisma.expense.findFirst.mockResolvedValue({ id: 'duplicate-1' });
 
-      const result = await service.findDuplicate(
-        telegramId,
-        100.5,
-        date,
-        'Alimentação',
-      );
+      const result = await service.findDuplicate(telegramId, 100.5, date);
 
       expect(result).toEqual({ id: 'duplicate-1' });
       expect(mockPrisma.expense.findFirst).toHaveBeenCalledWith({
@@ -155,22 +150,52 @@ describe('ExpensesService', () => {
             gte: start,
             lte: end,
           },
-          category: {
-            name: 'Alimentacao',
-          },
         },
       });
     });
 
     it('should return null if no duplicate exists', async () => {
       mockPrisma.expense.findFirst.mockResolvedValue(null);
-      const result = await service.findDuplicate(
-        telegramId,
-        50,
-        new Date(),
-        'Saúde',
-      );
+      const result = await service.findDuplicate(telegramId, 50, new Date());
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getRecentExpenses', () => {
+    const telegramId = 123456789n;
+
+    it('should fetch recent expenses with category names', async () => {
+      const mockExpenses = [
+        {
+          amount: 10,
+          description: 'A',
+          date: new Date(),
+          category: { name: 'Cat A' },
+        },
+        {
+          amount: 20,
+          description: 'B',
+          date: new Date(),
+          category: { name: 'Cat B' },
+        },
+      ];
+      mockPrisma.expense.findMany.mockResolvedValue(mockExpenses);
+
+      const result = await service.getRecentExpenses(telegramId, 2);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        amount: 10,
+        description: 'A',
+        date: expect.any(Date),
+        category: 'Cat A',
+      });
+      expect(mockPrisma.expense.findMany).toHaveBeenCalledWith({
+        where: { telegram_id: telegramId },
+        orderBy: { date: 'desc' },
+        take: 2,
+        include: { category: true },
+      });
     });
   });
 

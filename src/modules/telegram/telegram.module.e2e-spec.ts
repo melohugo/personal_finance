@@ -414,7 +414,7 @@ describe('TelegramModule (Integration)', () => {
     expect(service['bot'].telegram.sendMessage).toHaveBeenCalledWith(
       Number(telegramId),
       expect.stringContaining(
-        'Lanche Repetido de R$ 42.50 já parece estar registrado',
+        'gasto de R$ 42.50 em Alimentacao já parece estar registrado',
       ),
       expect.any(Object),
     );

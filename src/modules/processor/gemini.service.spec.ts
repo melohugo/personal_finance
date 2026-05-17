@@ -55,6 +55,9 @@ describe('GeminiService', () => {
       const imageUrl = 'https://example.com/receipt.jpg';
       const mimeType = 'image/jpeg';
       const existingCategories = ['Alimentação', 'Transporte'];
+      const recentExpenses = [
+        { amount: 10, category: 'Food', description: 'desc', date: new Date() },
+      ];
 
       mockedAxios.get.mockResolvedValue({
         data: Buffer.from('fake_image_data'),
@@ -81,6 +84,7 @@ describe('GeminiService', () => {
         imageUrl,
         mimeType,
         existingCategories,
+        recentExpenses,
       );
 
       expect(result).toEqual([
@@ -165,7 +169,12 @@ describe('GeminiService', () => {
         },
       });
 
-      const result = await service.extractExpenseFromFile(pdfUrl, mimeType, []);
+      const result = await service.extractExpenseFromFile(
+        pdfUrl,
+        mimeType,
+        [],
+        [],
+      );
 
       expect(result[0].amount).toBe(100);
       expect(mockGenerateContent).toHaveBeenCalledWith(
@@ -184,7 +193,7 @@ describe('GeminiService', () => {
       mockedAxios.get.mockRejectedValue(new Error('Download failed'));
 
       await expect(
-        service.extractExpenseFromFile('url', 'image/jpeg', []),
+        service.extractExpenseFromFile('url', 'image/jpeg', [], []),
       ).rejects.toThrow('Falha de rede ao baixar a imagem do Telegram.');
 
       expect(mockedAxios.get).toHaveBeenCalledTimes(3);
@@ -199,7 +208,7 @@ describe('GeminiService', () => {
       mockGenerateContent.mockRejectedValue(new Error('API Error'));
 
       await expect(
-        service.extractExpenseFromFile('url', 'image/jpeg', []),
+        service.extractExpenseFromFile('url', 'image/jpeg', [], []),
       ).rejects.toThrow('Falha na comunicação com a API do Gemini.');
     });
 
@@ -216,7 +225,7 @@ describe('GeminiService', () => {
       });
 
       await expect(
-        service.extractExpenseFromFile('url', 'image/jpeg', []),
+        service.extractExpenseFromFile('url', 'image/jpeg', [], []),
       ).rejects.toThrow('A resposta da IA não está em um formato válido.');
     });
   });
